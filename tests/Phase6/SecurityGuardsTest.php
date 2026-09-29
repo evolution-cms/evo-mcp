@@ -62,9 +62,15 @@ foreach ($sensitive as $field) {
     assertTrue(!isset($userLookup[$field]), "Sensitive field leaked into User allowlist: {$field}");
 }
 
-$requiredSafeFields = ['id', 'username', 'blocked', 'createdon'];
+$requiredSafeFields = ['id', 'username'];
 foreach ($requiredSafeFields as $field) {
     assertTrue(isset($userLookup[$field]), "Expected safe User field missing from allowlist: {$field}");
+}
+
+// Evo 3.x keeps block state and timestamps on user_attributes, not users.
+$attributeFields = $allowlists['UserAttribute'] ?? [];
+foreach (['blocked', 'internalKey'] as $field) {
+    assertTrue(in_array($field, $attributeFields, true), "Expected safe UserAttribute field missing from allowlist: {$field}");
 }
 
 $scopesMiddleware = file_get_contents(__DIR__ . '/../../src/Middleware/EnsureMcpScopes.php');
