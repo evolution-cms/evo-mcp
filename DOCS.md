@@ -93,7 +93,9 @@ php artisan migrate
 ```
 
 ## 5) Publish Resources
-Auto-publish may be enabled by installer flows, but explicit publish is recommended:
+`core/custom/config/cms/settings/eMCP.php` is created automatically on the first request after install when it is missing, so `emcp-config` is only needed to restore the defaults. `emcp-mcp-config` changes the MCP server list, `emcp-stubs` scaffolds your own servers and tools.
+
+Site-wide switches (write tools, manager/API endpoints, token scopes, rate limit, audit log, streaming) are also available as checkboxes in **Tools → MCP settings** (`{manager_url}/emcp/settings`, requires the `settings` permission). The page edits the same file and keeps its comments.
 
 ```bash
 php artisan vendor:publish --provider="EvolutionCMS\\eMCP\\eMCPServiceProvider" --tag=emcp-config

@@ -41,6 +41,8 @@ if [ ! -f "$CORE/config/database/connections/default.php" ]; then
 JSON
     # System composer, not core/vendor/bin/composer: the latter would replace the very files it runs from.
     (cd "$CORE" && composer update --no-dev --no-interaction --optimize-autoloader --with-all-dependencies evolution-cms/emcp)
+    # Evo 3.5.9+ caches the configuration (providers included) during install; drop it so eMCP loads.
+    rm -f "$CORE/storage/cache/env.php"
 
     log "Publishing eMCP config ..."
     (cd "$CORE" \
@@ -83,6 +85,7 @@ cat <<EOF
    Site      http://localhost:$PORT/
    Manager   http://localhost:$PORT/manager/   ($ADMIN_USER / $ADMIN_PASS)
    Tokens UI http://localhost:$PORT/manager/emcp/tokens
+   Settings  http://localhost:$PORT/manager/emcp/settings
    MCP       http://localhost:$PORT/mcp/content
 
    Token ($ADMIN_USER, read+call+write, never expires):
