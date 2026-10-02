@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace EvolutionCMS\eMCP\Http\Controllers;
 
 use Carbon\Carbon;
+use EvolutionCMS\eMCP\Http\Controllers\Concerns\ManagerPage;
 use EvolutionCMS\eMCP\Models\EmcpToken;
 use EvolutionCMS\eMCP\Services\TokenService;
 use EvolutionCMS\eMCP\Support\ManagerUrl;
 use EvolutionCMS\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 use InvalidArgumentException;
 
 /**
@@ -21,6 +23,10 @@ use InvalidArgumentException;
  */
 class TokensPageController
 {
+    use ManagerPage;
+
+    private const FLASH_KEY = 'emcp_tokens_flash';
+
     /** @var array<int, string> */
     private const EXPIRY_CHOICES = ['30', '90', '180', '365', 'never'];
 
@@ -32,6 +38,10 @@ class TokensPageController
     public function index(Request $request)
     {
         $userId = $this->currentUserId();
+        if ($userId === null) {
+            return $this->forbidden();
+        }
+        $this->applyManagerLocale();
 
         $tokens = EmcpToken::query()
             ->where('user_id', $userId)
@@ -50,17 +60,18 @@ class TokensPageController
             'message' => $this->pullFlash('message'),
             'error' => $this->pullFlash('error'),
             'darkTheme' => $this->isDarkTheme(),
+            'settingsUrl' => evo()->hasPermission('settings', 'mgr') ? ManagerUrl::to('emcp/settings') : '',
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): Response
     {
         $userId = $this->currentUserId();
 
         /** @var User|null $user */
-        $user = User::query()->with('attributes')->find($userId);
+        $user = $userId === null ? null : User::query()->with('attributes')->find($userId);
         if ($user === null) {
-            abort(403);
+            return $this->forbidden();
         }
 
         $name = trim((string)$request->input('name', ''));
@@ -80,9 +91,12 @@ class TokensPageController
         return $this->back('message', 'Token created. Copy it now: it will not be shown again.');
     }
 
-    public function revoke(Request $request, int $id): RedirectResponse
+    public function revoke(Request $request, int $id): Response
     {
         $userId = $this->currentUserId();
+        if ($userId === null) {
+            return $this->forbidden();
+        }
 
         /** @var EmcpToken|null $token */
         $token = EmcpToken::query()->where('user_id', $userId)->find($id);
@@ -96,14 +110,14 @@ class TokensPageController
         return $this->back('message', 'Token "' . $token->name . '" revoked.');
     }
 
-    private function currentUserId(): int
+    private function currentUserId(): ?int
     {
         if (!function_exists('evo') || !evo()->isLoggedIn('mgr')) {
-            abort(403);
+            return null;
         }
 
         if (!evo()->hasPermission((string)config('cms.settings.eMCP.acl.permission', 'emcp'), 'mgr')) {
-            abort(403);
+            return null;
         }
 
         return (int)evo()->getLoginUserID('mgr');
@@ -125,39 +139,5 @@ class TokensPageController
         }
 
         return redirect()->to(ManagerUrl::to('emcp/tokens'));
-    }
-
-    /**
-     * One-shot messages ride on Evo's native session: the manager's Laravel session store is not
-     * reliably shared across a redirect, the PHP session always is.
-     */
-    private function flash(string $key, string $value): void
-    {
-        $_SESSION['emcp_tokens_flash'][$key] = $value;
-    }
-
-    private function pullFlash(string $key): string
-    {
-        $value = (string)($_SESSION['emcp_tokens_flash'][$key] ?? '');
-        unset($_SESSION['emcp_tokens_flash'][$key]);
-
-        return $value;
-    }
-
-    private function isDarkTheme(): bool
-    {
-        $modes = ['', 'lightness', 'light', 'dark', 'darkness'];
-        $index = isset($_COOKIE['MODX_themeMode']) ? (int)$_COOKIE['MODX_themeMode'] : (int)evo()->getConfig('manager_theme_mode');
-
-        return in_array($modes[$index] ?? '', ['dark', 'darkness'], true);
-    }
-
-    private function logManagerAction(string $message): void
-    {
-        try {
-            evo()->logEvent(0, 1, $message, 'eMCP');
-        } catch (\Throwable) {
-            // The event log must never break the page.
-        }
     }
 }

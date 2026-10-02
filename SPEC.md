@@ -656,10 +656,10 @@ Default model field allowlists (MUST):
 - `SitePlugin`: `id`, `name`, `description`, `category`, `locked`, `disabled`, `createdon`, `editedon`.
 - `SiteModule`: `id`, `name`, `description`, `category`, `disabled`, `createdon`, `editedon`.
 - `Category`: `id`, `category`.
-- `User`: `id`, `username`, `isfrontend`, `createdon`, `editedon`, `blocked`, `blockeduntil`, `blockedafter`.
+- `User`: `id`, `username` (block state and timestamps live on `UserAttribute`).
 - `UserAttribute`: `id`, `internalKey`, `fullname`, `email`, `phone`, `mobilephone`, `blocked`, `blockeduntil`, `blockedafter`, `failedlogincount`, `logincount`, `lastlogin`.
-- `UserRole`: `id`, `name`, `description`, `frames`, `home`, `rank`, `locked`.
-- `Permissions`: `id`, `name`, `description`.
+- `UserRole`: `id`, `name`, `description`.
+- `Permissions`: `id`, `name`, `key`, `lang_key`, `group_id`, `disabled`.
 - `PermissionsGroups`: `id`, `name`.
 - `RolePermissions`: `id`, `role_id`, `permission`.
 

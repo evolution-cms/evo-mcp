@@ -27,7 +27,9 @@ use EvolutionCMS\eMCP\Services\SecurityPolicy;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
 use EvolutionCMS\eMCP\Services\TokenService;
 use EvolutionCMS\eMCP\Services\ToolRegistry;
+use EvolutionCMS\eMCP\Support\CustomConfigPath;
 use EvolutionCMS\eMCP\Support\Redactor;
+use EvolutionCMS\eMCP\Support\SettingsFile;
 
 class eMCPServiceProvider extends ServiceProvider
 {
@@ -63,6 +65,7 @@ class eMCPServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(dirname(__DIR__) . '/database/migrations');
         $this->loadTranslationsFrom(dirname(__DIR__) . '/lang', 'eMCP');
         $this->loadViewsFrom(dirname(__DIR__) . '/views', 'eMCP');
+        $this->publishSettingsFile();
         $this->loadMgrRoutes();
         $this->loadApiRoutes();
 
@@ -197,23 +200,24 @@ class eMCPServiceProvider extends ServiceProvider
 
     protected function customConfigPath(string $path): string
     {
-        $path = ltrim($path, '/\\');
+        return CustomConfigPath::to($path);
+    }
 
-        if (function_exists('config_path')) {
-            $candidate = config_path($path, true);
-            if (is_string($candidate) && $candidate !== '') {
-                $normalized = str_replace('\\', '/', $candidate);
-                if (str_contains($normalized, '/custom/config/')) {
-                    return $candidate;
-                }
+    /**
+     * A plain `composer require` never runs vendor:publish, so the site copy of the settings is
+     * created on first boot: the manager settings page edits that file.
+     */
+    protected function publishSettingsFile(): void
+    {
+        try {
+            if (SettingsFile::ensurePublished(SettingsFile::defaultSource(), SettingsFile::sitePath())) {
+                SettingsFile::forgetCachedConfig();
+            }
+        } catch (\Throwable $e) {
+            if (function_exists('logger')) {
+                logger()->warning('eMCP: could not publish settings file: ' . $e->getMessage());
             }
         }
-
-        if (defined('EVO_CORE_PATH')) {
-            return rtrim((string)EVO_CORE_PATH, '/\\') . '/custom/config/' . $path;
-        }
-
-        return base_path('core/custom/config/' . $path);
     }
 
     protected function autoRegisterDispatchWorker(): void
