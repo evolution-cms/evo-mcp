@@ -283,6 +283,7 @@ namespace {
     require_once __DIR__ . '/../../src/Support/RateLimitIdentityResolver.php';
     require_once __DIR__ . '/../../src/Support/Redactor.php';
     require_once __DIR__ . '/../../src/Services/AuditLogger.php';
+    require_once __DIR__ . '/../../src/Support/JsonRpcPayload.php';
     require_once __DIR__ . '/../../src/Services/SecurityPolicy.php';
     require_once __DIR__ . '/../../src/Services/IdempotencyStore.php';
     require_once __DIR__ . '/../../src/Http/Controllers/McpDispatchController.php';

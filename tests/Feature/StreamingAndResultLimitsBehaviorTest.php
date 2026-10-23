@@ -324,6 +324,7 @@ namespace {
 
     require_once __DIR__ . '/../../src/Support/TraceContext.php';
     require_once __DIR__ . '/../../src/Support/TransportError.php';
+    require_once __DIR__ . '/../../src/Support/JsonRpcPayload.php';
     require_once __DIR__ . '/../../src/Http/Controllers/McpManagerController.php';
 
     /** @var array<string,mixed> $configValues */

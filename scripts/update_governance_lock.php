@@ -20,14 +20,10 @@ $payload = [
     'spec_public_contract_hash' => $spec['public_contract_hash'],
     'model_allowlists_hash' => $modelHash,
     'golden_fixtures_hash' => $fixturesHash,
-    'updated_at' => date(DATE_ATOM),
 ];
 
-$json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
-if (!is_string($json)) {
-    throw new RuntimeException('Unable to encode governance lock payload.');
+if (governance_write_lock($lockPath, $payload)) {
+    echo "Governance lock updated: {$lockPath}\n";
+} else {
+    echo "Governance lock unchanged: {$lockPath}\n";
 }
-
-file_put_contents($lockPath, $json);
-
-echo "Governance lock updated: {$lockPath}\n";

@@ -35,7 +35,7 @@ Operations runbook: `OPERATIONS.md`.
 - PHP 8.3+
 - Composer 2.2+
 - `seiger/sapi` 1.x (installed as dependency; only used when `auth.mode = sapi_jwt`)
-- `seiger/stask` 1.x (installed as dependency)
+- `seiger/stask` 1.x (from 1.0.10) or 2.x, installed as dependency (2.x needs PHP 8.4)
 
 ## Install
 From your Evo `core` directory:
@@ -47,6 +47,10 @@ php artisan migrate
 ```
 
 ## Publish Config and Stubs
+
+`core/custom/config/cms/settings/eMCP.php` is created automatically on the first request after install when it is missing, so `emcp-config` is only needed to restore the defaults. `emcp-mcp-config` changes the MCP server list, `emcp-stubs` scaffolds your own servers and tools.
+
+Site-wide switches (write tools, manager/API endpoints, token scopes, rate limit, audit log, streaming) are also available as checkboxes in **Tools → MCP settings** (`{manager_url}/emcp/settings`, requires the `settings` permission). The page edits the same file and keeps its comments.
 
 ```bash
 php artisan vendor:publish --provider="EvolutionCMS\\eMCP\\eMCPServiceProvider" --tag=emcp-config
@@ -103,6 +107,9 @@ bearer_token_env_var = "EVO_MCP_TOKEN"
 
 Scopes narrow a token, never widen the user: `mcp:read` (list/read), `mcp:call` (read-only
 tools), `mcp:write` (`evo.write.*` tools, also gated by `security.enable_write_tools`),
+`mcp:destructive` (extension tools that delete data, also gated by
+`security.enable_destructive_tools`), `mcp:code` (saving snippets, plugins and `@EVAL`-style
+bindings, also gated by `security.enable_code_tools` and a snippet/plugin/module permission),
 `mcp:admin`. Tokens are stored hashed, can expire, and are revoked from the same page or with
 `emcp:token:revoke`. `emcp:token:list` shows what exists.
 
@@ -126,11 +133,15 @@ if (class_exists(\EvolutionCMS\eMCP\Services\ToolRegistry::class)) {
 }
 ```
 
-Tools are plain `Laravel\Mcp\Server\Tool` classes; mark the ones that change the site with
-`EvolutionCMS\eMCP\Contracts\WritesSite` so `security.enable_write_tools` and the `mcp:write`
-scope apply to them. Tool code runs as the impersonated manager, so `evo()->hasPermission()` and
-the extra's own guards behave as on the page. Alternatively list classes under
-`mcp.servers[].extra_tools`. Example: `elcreator/aimage` ships `aimage.*` tools this way.
+Tools are plain `Laravel\Mcp\Server\Tool` classes with a `#[Name('vendor.domain.action')]`.
+Mark the ones that change the site with `EvolutionCMS\eMCP\Contracts\WritesSite` so
+`security.enable_write_tools` and the `mcp:write` scope apply to them, the ones that delete data
+with `DestructiveSite`, the ones that store server-side code with `ExecutesCode`, and declare a
+required Evo permission with `RequiresPermission`. Tool code
+runs as the impersonated manager, so `evo()->hasPermission()` and the extra's own guards behave as
+on the page; `Support\ToolError` builds structured error results. Alternatively list classes under
+`mcp.servers[].extra_tools`. Example: `elcreator/aimage` ships `aimage.*` tools this way. The full
+contract (naming, identity rules, error format) is in [DOCS.md](DOCS.md#701-extension-tool-contract).
 
 ### Try it in Docker
 ```bash

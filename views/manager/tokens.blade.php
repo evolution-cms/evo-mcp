@@ -35,6 +35,9 @@
 </style>
 </head>
 <body>
+@if ($settingsUrl !== '')
+    <a style="float:right" href="{{ $settingsUrl }}">{{ __('eMCP::global.menu_settings') }}</a>
+@endif
 <h1>MCP access tokens</h1>
 <p class="muted">Tokens let an AI agent (Claude Code, Codex, ...) act on this site <strong>as you</strong>, limited to your role, your document groups and the scopes you pick here. Revoke a token the moment you stop using it.</p>
 
@@ -72,6 +75,8 @@
                             @if ($scope === 'mcp:read') — list tools, read resources
                             @elseif ($scope === 'mcp:call') — call read-only tools
                             @elseif ($scope === 'mcp:write') — call <code>evo.write.*</code> tools (still limited by your permissions)
+                            @elseif ($scope === 'mcp:destructive') — call tools that delete data (only if the site allows them)
+                            @elseif ($scope === 'mcp:code') — save snippets, plugins and code bindings that run on the server (only if the site allows it)
                             @elseif ($scope === 'mcp:admin') — administrative methods
                             @endif
                         </span>

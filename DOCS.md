@@ -81,7 +81,7 @@ Mandatory:
 - PHP 8.3+
 - Composer 2.2+
 - `seiger/sapi` 1.x
-- `seiger/stask` 1.x
+- `seiger/stask` 1.x (from 1.0.10) or 2.x (2.x needs PHP 8.4)
 
 ## 4) Install
 From Evo `core` directory:
@@ -93,7 +93,9 @@ php artisan migrate
 ```
 
 ## 5) Publish Resources
-Auto-publish may be enabled by installer flows, but explicit publish is recommended:
+`core/custom/config/cms/settings/eMCP.php` is created automatically on the first request after install when it is missing, so `emcp-config` is only needed to restore the defaults. `emcp-mcp-config` changes the MCP server list, `emcp-stubs` scaffolds your own servers and tools.
+
+Site-wide switches (write tools, manager/API endpoints, token scopes, rate limit, audit log, streaming) are also available as checkboxes in **Tools → MCP settings** (`{manager_url}/emcp/settings`, requires the `settings` permission). The page edits the same file and keeps its comments.
 
 ```bash
 php artisan vendor:publish --provider="EvolutionCMS\\eMCP\\eMCPServiceProvider" --tag=emcp-config
@@ -174,6 +176,8 @@ return [
         'allow_servers' => ['*'],
         'deny_tools' => [],
         'enable_write_tools' => false,
+        'enable_destructive_tools' => false,
+        'enable_code_tools' => false,
     ],
 
     'domain' => [
@@ -284,6 +288,87 @@ This keeps upstream runtime behavior while fitting Evo package architecture.
 - Add server entries in `core/custom/config/mcp.php` with unique `handle`.
 - Extend per-server policy via `scope_map`, `limits`, `rate_limit`, `security.deny_tools`.
 - Add tools/resources/prompts through generators (`make:mcp-*`) and shared stubs.
+- Contribute tools to an existing server from another extra: see 7.0.1.
+
+## 7.0.1) Extension Tool Contract
+An extra adds tools to a server in one of two ways:
+
+```php
+// 1. A ToolProvider, registered from the extra's service provider boot()
+if (interface_exists(\EvolutionCMS\eMCP\Contracts\ToolProvider::class)) {
+    app(\EvolutionCMS\eMCP\Services\ToolRegistry::class)->register(new ShopToolProvider());
+}
+
+// 2. Class names in core/custom/config/mcp.php
+'servers' => [['handle' => 'content', /* ... */ 'extra_tools' => [\Shop\Mcp\OrdersListTool::class]]],
+```
+
+`ShopToolProvider::server()` returns the server handle (`content` for the default server) and
+`tools()` the tool classes.
+
+Registration rules (SPEC 6.4, 6.5):
+- A tool is a `Laravel\Mcp\Server\Tool` subclass with a `#[Name('vendor.domain.action')]`
+  attribute. Without `#[Name]` the name is what Laravel MCP derives (the `$name` property, else
+  the kebab-cased class name); a tool that overrides `name()` and has no attribute is rejected,
+  because the policy layer could not recognise it on call.
+- `evo.*` names are reserved for eMCP. Names are unique: the first registration wins.
+- A rejected tool is not served at all. In debug mode (`app.debug`) registration throws; otherwise
+  a warning goes to the `emcp` log channel.
+
+Markers and contracts (all optional, in `EvolutionCMS\eMCP\Contracts`):
+
+| Contract | Effect |
+|---|---|
+| `WritesSite` | Write tool: refused unless `security.enable_write_tools` is on and the token has `auth.write_scope` (`mcp:write`). Listed either way. |
+| `DestructiveSite` (extends `WritesSite`) | Deletes or irreversibly overwrites data. Also needs `security.enable_destructive_tools` and `auth.destructive_scope` (`mcp:destructive`); hidden from `tools/list` while disabled; calls are marked in the audit log (`extra.destructive`, `extra.reversible`, `extra.source = mcp`). Add `public static function reversible(): bool` returning true for soft deletes. |
+| `ExecutesCode` (extends `WritesSite`) | Stores code the server executes: PHP, an executable file, an `@EVAL` / `@SELECT` / `@INCLUDE` binding, SQL. Also needs `security.enable_code_tools`, `auth.code_scope` (`mcp:code`) and, for the token owner, a permission that already grants backend code in the manager (`save_snippet`, `save_plugin` or `save_module`, as Evo's `BackendCodePermissions` defines it). Hidden from `tools/list` while disabled or not permitted; calls are marked in the audit log (`extra.executes_code`). Mark the whole tool if any of its calls can write code. |
+| `RequiresPermission` | `public static function permission(): string\|array` returns an Evo permission, or a list where any one is enough. Checked for the token owner before the tool runs (`403 permission_denied`), on every transport; the tool is hidden from `tools/list` for users without it. Role 1 always passes. No manager identity (`auth.mode = none`, CLI, an async worker) means no access. |
+
+`tools/list` also gets `readOnlyHint` / `destructiveHint` annotations from these markers (hints a
+tool sets itself are kept). They are hints for the client, not protection:
+- `DestructiveSite`, `ExecutesCode`: `destructiveHint: true`.
+- `WritesSite`: only `readOnlyHint: false`. MCP reads a missing `destructiveHint` as true, so a
+  tool that only adds data says so itself with `#[IsDestructive(false)]`.
+- Built-in: `evo.write.content.update` and `evo.write.elements.save` overwrite existing data with
+  no revision to return to, so they are `destructiveHint: true`; `content.create`,
+  `content.publish` and `cache.clear` are `false`; `evo.*` read tools are `readOnlyHint: true`.
+
+Built-in write tools pass the same code gate per call, judged from their arguments: saving a
+`snippet` or `plugin` with `evo.write.elements.save`, a TV definition with a code binding in
+`elements`, `default_text` or `display_params`, or a document whose field or TV value starts with
+`@EVAL` / `@SELECT` (also behind `@INHERIT`). Templates and chunks are ordinary writes: they only
+call existing snippets. Binding detection uses Evo's `TvBindingGuard` when the core has it.
+
+On an older eMCP without these contracts, check `interface_exists(...)` and do the same checks in
+the tool itself. With them, keep the in-tool checks for what the tool touches (document access,
+ownership): the contracts are an entry gate, not a replacement.
+
+### Identity rules
+- The acting user is `evo()->getLoginUserID('mgr')`, nothing else. Never take a `user_id` from
+  tool arguments and never read `$_SESSION` directly.
+- With `auth.mode = none` there is no manager identity: refuse (`forbidden`) instead of acting as
+  "the first admin" or any fallback user.
+- For queued work store the owner's id in the task when it is created; do not rely on the worker's
+  session, which belongs to nobody.
+- Somebody else's personal resource (a job, a draft, a token) is answered as `not_found`, so ids
+  cannot be probed.
+
+### Errors
+Return `EvolutionCMS\eMCP\Support\ToolError::make($code, $message, $status = 422, $extra = [])`
+from `handle()`. The result has `isError: true` and one JSON text block:
+
+```json
+{"ok": false, "error": "ambiguous", "message": "Several orders match.", "status": 409,
+ "candidates": [{"id": 12, "title": "Order #12"}, {"id": 14, "title": "Order #14"}]}
+```
+
+- Codes: `forbidden`, `not_found`, `ambiguous`, `invalid`, `refused`, `store_failure`, or the
+  extra's own with a namespace prefix (`aimage.quota_exceeded`). Any other code throws.
+- `errors`: per-field messages (`ToolError::fromValidation($e)` converts a `ValidationException`).
+- `candidates`: only `id` and `title` (a `name` counts as title); at most 10 are kept
+  (`candidates_truncated: true` when more were given). Put nothing there the user may not see.
+- eMCP's own tools still answer with `ValidationException` messages (their output is fixed by
+  golden fixtures).
 
 ## 7.1) Evo Domain Tool Profiles
 Canonical source for tool names/params/examples/errors is `TOOLSET.md`.
@@ -363,6 +448,11 @@ Minimum scope policy:
 - `mcp:read`: `initialize`, `ping`, list/read/get methods
 - `mcp:call`: `tools/call`
 - `mcp:admin`: server admin/service actions
+- `mcp:write` (`auth.write_scope`): additionally required by `evo.write.*` and `WritesSite` tools
+- `mcp:destructive` (`auth.destructive_scope`): additionally required by `DestructiveSite` tools;
+  a token issued with it also gets `mcp:write`, `mcp:call` and `mcp:read`
+- `mcp:code` (`auth.code_scope`): additionally required by calls that store backend code (see
+  `ExecutesCode`); a token issued with it also gets `mcp:write`, `mcp:call` and `mcp:read`
 
 Rules:
 - If `auth.require_scopes=true`, scope check is mandatory.

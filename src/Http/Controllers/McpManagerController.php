@@ -7,6 +7,8 @@ namespace EvolutionCMS\eMCP\Http\Controllers;
 use EvolutionCMS\eMCP\Services\AuditLogger;
 use EvolutionCMS\eMCP\Services\SecurityPolicy;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
+use EvolutionCMS\eMCP\Services\ToolRegistry;
+use EvolutionCMS\eMCP\Support\JsonRpcPayload;
 use EvolutionCMS\eMCP\Support\TraceContext;
 use EvolutionCMS\eMCP\Support\TransportError;
 use Illuminate\Http\Request;
@@ -47,10 +49,21 @@ class McpManagerController
         $payload = $request->json()->all();
         if (is_array($payload)) {
             $toolName = $this->securityPolicy->resolveToolName($payload);
-            if ($toolName !== null && $this->securityPolicy->isToolDenied($server, $toolName)) {
+            $arguments = JsonRpcPayload::argumentsOf($payload);
+            if ($toolName !== null && $this->securityPolicy->isToolDenied($server, $toolName, $arguments)) {
                 return $this->finalizeResponse(
                     $request,
                     TransportError::response($request, 403, 'tool_denied', 'Tool denied by policy'),
+                    $server,
+                    $auditMethod,
+                    $startedAt
+                );
+            }
+
+            if ($toolName !== null && !$this->securityPolicy->isToolPermitted($toolName, $arguments)) {
+                return $this->finalizeResponse(
+                    $request,
+                    TransportError::response($request, 403, 'permission_denied', 'Permission denied'),
                     $server,
                     $auditMethod,
                     $startedAt
@@ -94,6 +107,10 @@ class McpManagerController
 
         if (!$response instanceof StreamedResponse && $this->isInitializeRequest($request)) {
             $this->injectPlatformMetadata($response);
+        }
+
+        if (!$response instanceof StreamedResponse && $this->isToolsListRequest($request)) {
+            $this->injectToolAnnotations($response);
         }
 
         if ($response instanceof StreamedResponse) {
@@ -149,6 +166,52 @@ class McpManagerController
         $payload = $request->json()->all();
 
         return is_array($payload) && ($payload['method'] ?? null) === 'initialize';
+    }
+
+    private function isToolsListRequest(Request $request): bool
+    {
+        $payload = $request->json()->all();
+
+        return is_array($payload) && ($payload['method'] ?? null) === 'tools/list';
+    }
+
+    /**
+     * Fills readOnlyHint / destructiveHint from the WritesSite / DestructiveSite markers.
+     * Hints a tool sets itself are kept.
+     */
+    private function injectToolAnnotations(Response $response): void
+    {
+        $raw = $response->getContent();
+        if (!is_string($raw) || $raw === '') {
+            return;
+        }
+
+        // Decoded as objects, so empty JSON objects ({} schemas, annotations) survive re-encoding.
+        $payload = json_decode($raw);
+        if (!is_object($payload) || !is_array($payload->result->tools ?? null)) {
+            return;
+        }
+
+        $registry = app(ToolRegistry::class);
+        $changed = false;
+        foreach ($payload->result->tools as $tool) {
+            if (!is_object($tool) || !is_string($tool->name ?? null)) {
+                continue;
+            }
+
+            $hints = $registry->annotationsFor($tool->name);
+            if ($hints === []) {
+                continue;
+            }
+
+            $existing = is_object($tool->annotations ?? null) ? get_object_vars($tool->annotations) : [];
+            $tool->annotations = (object)($existing + $hints);
+            $changed = true;
+        }
+
+        if ($changed) {
+            $response->setContent(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        }
     }
 
     private function injectPlatformMetadata(Response $response): void
@@ -355,6 +418,33 @@ class McpManagerController
         return [];
     }
 
+    /**
+     * Calls to destructive tools and calls that store backend code are marked so they can be
+     * found in the audit log.
+     *
+     * @return array<string, mixed>
+     */
+    private function auditExtra(Request $request): array
+    {
+        $payload = $request->json()->all();
+        $toolName = is_array($payload) ? $this->securityPolicy->resolveToolName($payload) : null;
+        if ($toolName === null) {
+            return [];
+        }
+
+        $registry = app(ToolRegistry::class);
+        $extra = [];
+        if ($registry->isDestructiveTool($toolName)) {
+            $extra['destructive'] = true;
+            $extra['reversible'] = $registry->isReversible($toolName);
+        }
+        if ($registry->writesCode($toolName, JsonRpcPayload::argumentsOf($payload))) {
+            $extra['executes_code'] = true;
+        }
+
+        return $extra === [] ? [] : ['source' => 'mcp', 'tool' => $toolName] + $extra;
+    }
+
     private function resolveAuditMethod(Request $request): string
     {
         $payload = $request->json()->all();
@@ -376,7 +466,9 @@ class McpManagerController
             $server,
             $method,
             $response->getStatusCode(),
-            $startedAt
+            $startedAt,
+            null,
+            $this->auditExtra($request)
         );
 
         return $response;

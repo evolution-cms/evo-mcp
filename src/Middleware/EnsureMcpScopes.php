@@ -6,6 +6,7 @@ namespace EvolutionCMS\eMCP\Middleware;
 
 use Closure;
 use EvolutionCMS\eMCP\Services\ScopePolicy;
+use EvolutionCMS\eMCP\Support\JsonRpcPayload;
 use EvolutionCMS\eMCP\Support\TransportError;
 use Illuminate\Http\Request;
 
@@ -50,28 +51,14 @@ class EnsureMcpScopes
 
         $request->attributes->set('emcp.required_scope', $requiredScope);
 
-        $toolScope = $this->resolveToolScope($request, $method);
-        if ($toolScope !== null && !$this->scopePolicy->requestHasScope($request, $toolScope)) {
-            return TransportError::response($request, 403, 'scope_denied', 'Scope denied');
+        $toolName = JsonRpcPayload::toolName($request);
+        foreach ($toolName !== null ? $this->scopePolicy->resolveToolScopes($toolName, JsonRpcPayload::toolArguments($request)) : [] as $toolScope) {
+            if (!$this->scopePolicy->requestHasScope($request, $toolScope)) {
+                return TransportError::response($request, 403, 'scope_denied', 'Scope denied');
+            }
         }
 
         return $next($request);
-    }
-
-    private function resolveToolScope(Request $request, string $method): ?string
-    {
-        if ($method !== 'tools/call') {
-            return null;
-        }
-
-        $payload = json_decode((string)$request->getContent(), true);
-        if (!is_array($payload)) {
-            return null;
-        }
-
-        $toolName = trim((string)($payload['params']['name'] ?? ''));
-
-        return $toolName !== '' ? $this->scopePolicy->resolveToolScope($toolName) : null;
     }
 
     private function hasAuthContext(Request $request): bool

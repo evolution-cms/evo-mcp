@@ -1,0 +1,15 @@
+{
+    "SiteTemplate": ["id", "templatename", "templatealias", "templatesource", "description", "editor_type", "category", "icon", "template_type", "content", "locked", "selectable", "createdon", "editedon", "templatefileextension"],
+    "SiteTmplvar": ["id", "type", "name", "caption", "description", "editor_type", "category", "locked", "elements", "rank", "display", "display_params", "default_text", "properties", "createdon", "editedon"],
+    "SiteTmplvarContentvalue": ["id", "tmplvarid", "contentid", "value"],
+    "SiteSnippet": ["id", "name", "description", "editor_type", "category", "cache_type", "snippet", "locked", "properties", "moduleguid", "createdon", "editedon", "disabled"],
+    "SitePlugin": ["id", "name", "description", "editor_type", "category", "cache_type", "plugincode", "locked", "properties", "disabled", "moduleguid", "createdon", "editedon"],
+    "SiteModule": ["id", "name", "description", "editor_type", "disabled", "category", "wrap", "locked", "icon", "enable_resource", "resourcefile", "createdon", "editedon", "guid", "enable_sharedparams", "properties", "modulecode"],
+    "Category": ["id", "category", "rank"],
+    "User": ["id", "username", "password", "cachepwd", "cachepwd_valid_to", "refresh_token", "access_token", "valid_to", "verified_key"],
+    "UserAttribute": ["id", "internalKey", "fullname", "first_name", "last_name", "middle_name", "role", "email", "phone", "mobilephone", "blocked", "blockeduntil", "blockedafter", "logincount", "lastlogin", "thislogin", "failedlogincount", "sessionid", "dob", "gender", "country", "street", "city", "state", "zip", "fax", "photo", "comment", "createdon", "editedon", "verified"],
+    "UserRole": ["id", "name", "description"],
+    "Permissions": ["id", "name", "key", "lang_key", "group_id", "disabled", "created_at", "updated_at"],
+    "PermissionsGroups": ["id", "name", "lang_key", "created_at", "updated_at"],
+    "RolePermissions": ["id", "permission", "role_id", "created_at", "updated_at"]
+}

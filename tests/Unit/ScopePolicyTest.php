@@ -110,6 +110,7 @@ namespace {
         }
     }
 
+    require_once __DIR__ . '/../../src/Support/JsonRpcPayload.php';
     require_once __DIR__ . '/../../src/Services/ScopePolicy.php';
 
     $policy = new ScopePolicy();

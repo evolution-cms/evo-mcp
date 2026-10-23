@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EvolutionCMS\eMCP\Services;
 
 use EvolutionCMS\eMCP\Http\Controllers\McpManagerController;
+use EvolutionCMS\eMCP\Support\JsonRpcPayload;
 use EvolutionCMS\eMCP\Support\TraceContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -44,8 +45,15 @@ final class McpExecutionService
         ];
 
         $toolName = $this->securityPolicy->resolveToolName($payload);
-        if ($toolName !== null && $this->securityPolicy->isToolDenied($serverHandle, $toolName)) {
+        $arguments = JsonRpcPayload::argumentsOf($payload);
+        if ($toolName !== null && $this->securityPolicy->isToolDenied($serverHandle, $toolName, $arguments)) {
             throw new \DomainException('Tool is denied by security policy.');
+        }
+
+        // Workers run without a manager session, so a RequiresPermission tool is refused here
+        // unless the caller already runs as a manager (sync failover inside an HTTP request).
+        if ($toolName !== null && !$this->securityPolicy->isToolPermitted($toolName, $arguments)) {
+            throw new \DomainException('Tool requires a permission the caller does not have.');
         }
 
         $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

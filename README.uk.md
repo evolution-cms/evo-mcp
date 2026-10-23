@@ -35,7 +35,7 @@ Versioning і BC policy: `PRD.md` (розділ `API Stability Policy`).
 - PHP 8.3+
 - Composer 2.2+
 - `seiger/sapi` 1.x (встановлюється як залежність)
-- `seiger/stask` 1.x (встановлюється як залежність)
+- `seiger/stask` 1.x (від 1.0.10) або 2.x, встановлюється як залежність (2.x потребує PHP 8.4)
 
 ## Встановлення
 З директорії `core` вашого Evo:
@@ -47,6 +47,10 @@ php artisan migrate
 ```
 
 ## Publish конфігів і stubs
+
+`core/custom/config/cms/settings/eMCP.php` створюється автоматично під час першого запиту після встановлення, якщо його немає, тому `emcp-config` потрібен лише щоб повернути значення за замовчуванням. `emcp-mcp-config` змінює список MCP-серверів, `emcp-stubs` дає шаблони для власних серверів і tools.
+
+Загальносайтові перемикачі (інструменти запису, endpoint менеджера/API, scopes токенів, rate limit, журнал аудиту, streaming) також доступні як чекбокси в **Інструменти → Налаштування MCP** (`{manager_url}/emcp/settings`, потрібен дозвіл `settings`). Сторінка редагує той самий файл і зберігає коментарі в ньому.
 
 ```bash
 php artisan vendor:publish --provider="EvolutionCMS\\eMCP\\eMCPServiceProvider" --tag=emcp-config

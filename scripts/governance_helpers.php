@@ -181,3 +181,38 @@ function governance_golden_fixtures_hash(string $fixturesDir): string
 
     return hash('sha256', implode('|', $chunks));
 }
+
+/**
+ * Writes the governance lock, unless only `updated_at` would change: a lock whose hashes and
+ * markers already match is left untouched, so regenerating it adds no noise to the diff.
+ *
+ * @param  array<string, mixed>  $payload  lock contents without `updated_at`
+ * @return bool  true when the file was written
+ */
+function governance_write_lock(string $lockPath, array $payload, ?string $updatedAt = null): bool
+{
+    unset($payload['updated_at']);
+
+    if (is_file($lockPath)) {
+        $current = json_decode((string)file_get_contents($lockPath), true);
+        if (is_array($current)) {
+            unset($current['updated_at']);
+            if ($current === $payload) {
+                return false;
+            }
+        }
+    }
+
+    $payload['updated_at'] = $updatedAt ?? date(DATE_ATOM);
+
+    $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if (!is_string($json)) {
+        throw new RuntimeException('Unable to encode governance lock payload.');
+    }
+
+    if (file_put_contents($lockPath, $json . "\n") === false) {
+        throw new RuntimeException("Unable to write governance lock: {$lockPath}");
+    }
+
+    return true;
+}

@@ -15,7 +15,7 @@ class eMcpTokenCreateCommand extends Command
     protected $signature = 'emcp:token:create
         {username : Manager user the token acts as}
         {--name=cli : Label shown in the token list}
-        {--scopes=mcp:read,mcp:call : Comma-separated scopes (mcp:read, mcp:call, mcp:write, mcp:admin)}
+        {--scopes=mcp:read,mcp:call : Comma-separated scopes (mcp:read, mcp:call, mcp:write, mcp:destructive, mcp:code, mcp:admin)}
         {--expires=90 : Days until expiry, or "never"}
         {--json : Print the result as JSON}';
 

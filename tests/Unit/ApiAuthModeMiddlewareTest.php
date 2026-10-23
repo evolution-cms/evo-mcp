@@ -233,6 +233,7 @@ namespace {
 
     require_once __DIR__ . '/../../src/Support/TraceContext.php';
     require_once __DIR__ . '/../../src/Support/TransportError.php';
+    require_once __DIR__ . '/../../src/Support/JsonRpcPayload.php';
     require_once __DIR__ . '/../../src/Services/ScopePolicy.php';
     require_once __DIR__ . '/../../src/Middleware/EnsureApiJwt.php';
     require_once __DIR__ . '/../../src/Middleware/EnsureMcpScopes.php';

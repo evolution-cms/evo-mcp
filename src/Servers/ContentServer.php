@@ -25,6 +25,7 @@ use EvolutionCMS\eMCP\Tools\Write\ContentCreateTool;
 use EvolutionCMS\eMCP\Tools\Write\ContentPublishTool;
 use EvolutionCMS\eMCP\Tools\Write\ContentUpdateTool;
 use EvolutionCMS\eMCP\Tools\Write\ElementsSaveTool;
+use EvolutionCMS\eMCP\Services\SecurityPolicy;
 use EvolutionCMS\eMCP\Services\ToolRegistry;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Contracts\Transport;
@@ -74,6 +75,14 @@ class ContentServer extends Server
                 $this->tools[] = $class;
             }
         }
+
+        // Leave out what this user may not call (deny_tools, disabled destructive tools, missing
+        // RequiresPermission). This also covers the local transport, which has no HTTP policy layer.
+        $policy = app(SecurityPolicy::class);
+        $this->tools = array_values(array_filter(
+            $this->tools,
+            static fn(string $class): bool => !$policy->isToolHidden(self::HANDLE, (string)ToolRegistry::resolveName($class))
+        ));
 
         parent::__construct($transport);
     }

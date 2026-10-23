@@ -23,6 +23,11 @@ return [
         'require_scopes' => true,
         // Extra scope a token needs to call evo.write.* tools.
         'write_scope' => 'mcp:write',
+        // Extra scope (on top of write_scope) a token needs to call DestructiveSite tools.
+        'destructive_scope' => 'mcp:destructive',
+        // Extra scope (on top of write_scope) a token needs to store backend code: snippets,
+        // plugins, @EVAL/@SELECT/@INCLUDE bindings, ExecutesCode tools.
+        'code_scope' => 'mcp:code',
         'scope_map' => [
             'mcp:read' => [
                 'initialize',
@@ -92,6 +97,10 @@ return [
         'allow_servers' => ['*'],
         'deny_tools' => [],
         'enable_write_tools' => false,
+        // Tools that delete data (DestructiveSite). Off: they are hidden and refused.
+        'enable_destructive_tools' => false,
+        // Writing code the server executes (PHP, code bindings). Off: refused, even for admins.
+        'enable_code_tools' => false,
     ],
 
     'actor' => [

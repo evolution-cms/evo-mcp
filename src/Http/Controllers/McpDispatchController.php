@@ -9,6 +9,7 @@ use EvolutionCMS\eMCP\Services\IdempotencyStore;
 use EvolutionCMS\eMCP\Services\McpExecutionService;
 use EvolutionCMS\eMCP\Services\SecurityPolicy;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
+use EvolutionCMS\eMCP\Support\JsonRpcPayload;
 use EvolutionCMS\eMCP\Support\TraceContext;
 use EvolutionCMS\eMCP\Support\TransportError;
 use Illuminate\Http\JsonResponse;
@@ -79,10 +80,21 @@ class McpDispatchController
         }
 
         $toolName = $this->securityPolicy->resolveToolName($jsonrpc);
-        if ($toolName !== null && $this->securityPolicy->isToolDenied($server, $toolName)) {
+        $arguments = JsonRpcPayload::argumentsOf($jsonrpc);
+        if ($toolName !== null && $this->securityPolicy->isToolDenied($server, $toolName, $arguments)) {
             return $this->finalize(
                 $request,
                 TransportError::response($request, 403, 'tool_denied', 'Tool denied by policy'),
+                $server,
+                'dispatch',
+                $startedAt
+            );
+        }
+
+        if ($toolName !== null && !$this->securityPolicy->isToolPermitted($toolName, $arguments)) {
+            return $this->finalize(
+                $request,
+                TransportError::response($request, 403, 'permission_denied', 'Permission denied'),
                 $server,
                 'dispatch',
                 $startedAt

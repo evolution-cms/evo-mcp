@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Services;
 
+use EvolutionCMS\eMCP\Support\JsonRpcPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -40,18 +41,8 @@ class ScopePolicy
             return $cached;
         }
 
-        $rawBody = $request->getContent();
-        if (!is_string($rawBody) || trim($rawBody) === '') {
-            return null;
-        }
-
-        $payload = json_decode($rawBody, true);
-        if (!is_array($payload)) {
-            return null;
-        }
-
-        $method = trim((string)($payload['method'] ?? ''));
-        if ($method === '') {
+        $method = JsonRpcPayload::method($request);
+        if ($method === null) {
             return null;
         }
 
@@ -119,15 +110,57 @@ class ScopePolicy
     public function resolveToolScope(string $toolName): ?string
     {
         $isWrite = str_starts_with(trim($toolName), 'evo.write.')
-            || (function_exists('app') && app()->bound(ToolRegistry::class) && app(ToolRegistry::class)->isWriteTool($toolName));
+            || ($this->registry()?->isWriteTool($toolName) ?? false);
 
         if (!$isWrite) {
             return null;
         }
 
-        $scope = trim((string)config('cms.settings.eMCP.auth.write_scope', 'mcp:write'));
+        return $this->configuredScope('write_scope', 'mcp:write');
+    }
 
-        return $scope !== '' ? $scope : 'mcp:write';
+    /**
+     * Every scope a `tools/call` needs on top of `mcp:call`: the write scope for write tools,
+     * plus the destructive scope for DestructiveSite tools and the code scope for a call that
+     * stores backend code (ExecutesCode, or a built-in tool judged from its arguments).
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<int, string>
+     */
+    public function resolveToolScopes(string $toolName, array $arguments = []): array
+    {
+        $scopes = [];
+
+        $writeScope = $this->resolveToolScope($toolName);
+        if ($writeScope !== null) {
+            $scopes[] = $writeScope;
+        }
+
+        if ($this->registry()?->isDestructiveTool($toolName) ?? false) {
+            $scopes[] = $this->configuredScope('destructive_scope', 'mcp:destructive');
+        }
+
+        if ($this->registry()?->writesCode($toolName, $arguments) ?? false) {
+            $scopes[] = $this->configuredScope('code_scope', 'mcp:code');
+        }
+
+        return array_values(array_unique($scopes));
+    }
+
+    private function configuredScope(string $key, string $default): string
+    {
+        $scope = trim((string)config('cms.settings.eMCP.auth.' . $key, $default));
+
+        return $scope !== '' ? $scope : $default;
+    }
+
+    private function registry(): ?ToolRegistry
+    {
+        if (!function_exists('app') || !app()->bound(ToolRegistry::class)) {
+            return null;
+        }
+
+        return app(ToolRegistry::class);
     }
 
     /**

@@ -20,7 +20,7 @@ final class TokenService
     public const PREFIX = 'emcp_';
 
     /** @var array<int, string> */
-    public const KNOWN_SCOPES = ['mcp:read', 'mcp:call', 'mcp:write', 'mcp:admin'];
+    public const KNOWN_SCOPES = ['mcp:read', 'mcp:call', 'mcp:write', 'mcp:destructive', 'mcp:code', 'mcp:admin'];
 
     /**
      * @param  array<int, string>  $scopes
@@ -111,6 +111,10 @@ final class TokenService
         }
 
         // Calling tools without being able to list them is useless, so mcp:call implies mcp:read.
+        // Destructive and code tools are write tools, so mcp:destructive and mcp:code imply mcp:write.
+        if (in_array('mcp:destructive', $normalized, true) || in_array('mcp:code', $normalized, true)) {
+            $normalized[] = 'mcp:write';
+        }
         if (in_array('mcp:call', $normalized, true) || in_array('mcp:write', $normalized, true)) {
             $normalized[] = 'mcp:read';
         }

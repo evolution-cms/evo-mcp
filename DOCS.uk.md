@@ -81,7 +81,7 @@ php artisan make:mcp-tool HealthTool
 - PHP 8.3+
 - Composer 2.2+
 - `seiger/sapi` 1.x
-- `seiger/stask` 1.x
+- `seiger/stask` 1.x (від 1.0.10) або 2.x (2.x потребує PHP 8.4)
 
 ## 4) Встановлення
 З директорії `core` Evo:
@@ -93,7 +93,9 @@ php artisan migrate
 ```
 
 ## 5) Publish ресурсів
-Auto-publish може бути увімкнений інсталером, але краще явно виконати:
+`core/custom/config/cms/settings/eMCP.php` створюється автоматично під час першого запиту після встановлення, якщо його немає, тому `emcp-config` потрібен лише щоб повернути значення за замовчуванням. `emcp-mcp-config` змінює список MCP-серверів, `emcp-stubs` дає шаблони для власних серверів і tools.
+
+Загальносайтові перемикачі (інструменти запису, endpoint менеджера/API, scopes токенів, rate limit, журнал аудиту, streaming) також доступні як чекбокси в **Інструменти → Налаштування MCP** (`{manager_url}/emcp/settings`, потрібен дозвіл `settings`). Сторінка редагує той самий файл і зберігає коментарі в ньому.
 
 ```bash
 php artisan vendor:publish --provider="EvolutionCMS\\eMCP\\eMCPServiceProvider" --tag=emcp-config
@@ -174,6 +176,8 @@ return [
         'allow_servers' => ['*'],
         'deny_tools' => [],
         'enable_write_tools' => false,
+        'enable_destructive_tools' => false,
+        'enable_code_tools' => false,
     ],
 
     'domain' => [
@@ -284,6 +288,87 @@ Upstream Laravel MCP очікує `routes/ai.php`.
 - Додати server entries у `core/custom/config/mcp.php` з унікальним `handle`.
 - Розширювати per-server policy через `scope_map`, `limits`, `rate_limit`, `security.deny_tools`.
 - Додавати tools/resources/prompts через генератори (`make:mcp-*`) і спільні stubs.
+- Додавати tools до наявного сервера з іншого extra: див. 7.0.1.
+
+## 7.0.1) Extension Tool Contract
+Extra додає tools до сервера одним із двох способів:
+
+```php
+// 1. A ToolProvider, registered from the extra's service provider boot()
+if (interface_exists(\EvolutionCMS\eMCP\Contracts\ToolProvider::class)) {
+    app(\EvolutionCMS\eMCP\Services\ToolRegistry::class)->register(new ShopToolProvider());
+}
+
+// 2. Class names in core/custom/config/mcp.php
+'servers' => [['handle' => 'content', /* ... */ 'extra_tools' => [\Shop\Mcp\OrdersListTool::class]]],
+```
+
+`ShopToolProvider::server()` повертає handle сервера (`content` для сервера за замовчуванням), а
+`tools()` — класи tools.
+
+Правила реєстрації (SPEC 6.4, 6.5):
+- Tool — це підклас `Laravel\Mcp\Server\Tool` з атрибутом `#[Name('vendor.domain.action')]`.
+  Без `#[Name]` назвою стає те, що виводить Laravel MCP (властивість `$name`, інакше
+  kebab-case назва класу); tool, що перевизначає `name()` і не має атрибута, відхиляється,
+  бо policy-шар не зміг би розпізнати його під час виклику.
+- Назви `evo.*` зарезервовані за eMCP. Назви унікальні: перемагає перша реєстрація.
+- Відхилений tool не обслуговується взагалі. У debug-режимі (`app.debug`) реєстрація кидає виняток;
+  інакше попередження йде в log channel `emcp`.
+
+Маркери й контракти (усі необовʼязкові, у `EvolutionCMS\eMCP\Contracts`):
+
+| Контракт | Ефект |
+|---|---|
+| `WritesSite` | Write tool: відхиляється, якщо не ввімкнено `security.enable_write_tools` і токен не має `auth.write_scope` (`mcp:write`). У списку показується в будь-якому разі. |
+| `DestructiveSite` (розширює `WritesSite`) | Видаляє або незворотно перезаписує дані. Додатково потребує `security.enable_destructive_tools` і `auth.destructive_scope` (`mcp:destructive`); поки вимкнено, прихований у `tools/list`; виклики позначаються в audit log (`extra.destructive`, `extra.reversible`, `extra.source = mcp`). Додайте `public static function reversible(): bool`, що повертає true для soft delete. |
+| `ExecutesCode` (розширює `WritesSite`) | Зберігає код, який виконує сервер: PHP, виконуваний файл, binding `@EVAL` / `@SELECT` / `@INCLUDE`, SQL. Додатково потребує `security.enable_code_tools`, `auth.code_scope` (`mcp:code`) і, для власника токена, permission, що вже дає доступ до backend-коду в менеджері (`save_snippet`, `save_plugin` або `save_module`, як це визначає `BackendCodePermissions` в Evo). Поки вимкнено або не дозволено, прихований у `tools/list`; виклики позначаються в audit log (`extra.executes_code`). Позначайте весь tool, якщо будь-який його виклик може записувати код. |
+| `RequiresPermission` | `public static function permission(): string\|array` повертає Evo permission або список, де достатньо будь-якого одного. Перевіряється для власника токена до запуску tool (`403 permission_denied`) на кожному transport; для користувачів без нього tool прихований у `tools/list`. Роль 1 проходить завжди. Немає manager identity (`auth.mode = none`, CLI, async worker) — немає доступу. |
+
+`tools/list` також отримує анотації `readOnlyHint` / `destructiveHint` з цих маркерів (hints, які
+tool задає сам, зберігаються). Це підказки для клієнта, а не захист:
+- `DestructiveSite`, `ExecutesCode`: `destructiveHint: true`.
+- `WritesSite`: лише `readOnlyHint: false`. MCP трактує відсутній `destructiveHint` як true, тож
+  tool, що лише додає дані, сам вказує це через `#[IsDestructive(false)]`.
+- Вбудовані: `evo.write.content.update` і `evo.write.elements.save` перезаписують наявні дані без
+  ревізії, до якої можна повернутися, тому вони `destructiveHint: true`; `content.create`,
+  `content.publish` і `cache.clear` — `false`; read tools `evo.*` — `readOnlyHint: true`.
+
+Вбудовані write tools проходять той самий code gate для кожного виклику, судячи з їхніх аргументів:
+збереження `snippet` або `plugin` через `evo.write.elements.save`, визначення TV з code binding в
+`elements`, `default_text` або `display_params`, або документа, поле чи значення TV якого починається
+з `@EVAL` / `@SELECT` (також за `@INHERIT`). Шаблони й чанки — звичайний запис: вони лише викликають
+наявні сніпети. Виявлення bindings використовує `TvBindingGuard` з Evo, якщо ядро його має.
+
+На старішому eMCP без цих контрактів перевіряйте `interface_exists(...)` і робіть ті самі перевірки
+в самому tool. З ними залишайте перевірки в tool для того, чого він торкається (доступ до документів,
+власність): контракти — це вхідний бар'єр, а не заміна.
+
+### Правила ідентичності
+- Діючий користувач — це `evo()->getLoginUserID('mgr')`, і ніхто інший. Ніколи не беріть `user_id`
+  з аргументів tool і ніколи не читайте `$_SESSION` напряму.
+- З `auth.mode = none` manager identity немає: відмовляйте (`forbidden`), а не дійте як
+  «перший адмін» чи будь-який fallback-користувач.
+- Для queued-роботи зберігайте id власника в задачі під час її створення; не покладайтеся на сесію
+  worker, яка не належить нікому.
+- На чужий персональний ресурс (job, чернетку, токен) відповідайте `not_found`, щоб id не можна
+  було перебирати.
+
+### Помилки
+Повертайте `EvolutionCMS\eMCP\Support\ToolError::make($code, $message, $status = 422, $extra = [])`
+з `handle()`. Результат має `isError: true` і один JSON text block:
+
+```json
+{"ok": false, "error": "ambiguous", "message": "Several orders match.", "status": 409,
+ "candidates": [{"id": 12, "title": "Order #12"}, {"id": 14, "title": "Order #14"}]}
+```
+
+- Коди: `forbidden`, `not_found`, `ambiguous`, `invalid`, `refused`, `store_failure` або власні коди
+  extra з namespace-префіксом (`aimage.quota_exceeded`). Будь-який інший код кидає виняток.
+- `errors`: повідомлення по полях (`ToolError::fromValidation($e)` перетворює `ValidationException`).
+- `candidates`: лише `id` і `title` (`name` вважається title); зберігається не більше 10
+  (`candidates_truncated: true`, якщо передано більше). Не кладіть туди нічого, чого користувач не може бачити.
+- Власні tools eMCP і далі відповідають повідомленнями `ValidationException` (їхній вивід зафіксовано
+  golden fixtures).
 
 ## 7.1) Evo Domain Tool Profiles
 Канонічне джерело tool names/params/examples/errors: `TOOLSET.md`.
@@ -363,6 +448,11 @@ Default allowlist моделей:
 - `mcp:read`: `initialize`, `ping`, list/read/get методи
 - `mcp:call`: `tools/call`
 - `mcp:admin`: admin/service дії
+- `mcp:write` (`auth.write_scope`): додатково потрібен для `evo.write.*` і `WritesSite` tools
+- `mcp:destructive` (`auth.destructive_scope`): додатково потрібен для `DestructiveSite` tools;
+  токен, виданий з ним, також отримує `mcp:write`, `mcp:call` і `mcp:read`
+- `mcp:code` (`auth.code_scope`): додатково потрібен для викликів, що зберігають backend-код (див.
+  `ExecutesCode`); токен, виданий з ним, також отримує `mcp:write`, `mcp:call` і `mcp:read`
 
 Правила:
 - якщо `auth.require_scopes=true`, перевірка scope обовʼязкова
