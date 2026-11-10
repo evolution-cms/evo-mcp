@@ -150,6 +150,20 @@ EVO_EXTRAS=elcreator/aimage AIMAGE_API_KEY=... docker compose up --build   # wit
 docker/smoke.sh                             # runs an end-to-end check against it
 ```
 
+### Claude Code skills
+The repository is a Claude Code plugin marketplace. Its skills teach an agent how to use the
+tools: `emcp` (documents, elements, users, cache, extending) and the extras' own plugins.
+
+```bash
+claude plugin marketplace add evolution-cms/evo-mcp
+claude plugin install emcp@evolution-cms
+claude plugin install aimage@evolution-cms   # example - optional, with elcreator/aimage
+```
+
+Other agents can use `skills/evolution-cms-mcp/SKILL.md` directly. An extra that adds tools
+ships its skill in its own `skills/` folder with a `.claude-plugin/plugin.json`, and is listed
+in `.claude-plugin/marketplace.json`.
+
 ## Design Philosophy (Optional Reading)
 ### Why This Product Exists (4 Core Questions, Aristotle)
 This is the shortest way to understand eMCP as a product, not just a package.

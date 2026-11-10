@@ -229,6 +229,11 @@ class McpManagerController
         $payload['result']['serverInfo']['platform'] = 'eMCP';
         $payload['result']['serverInfo']['platformVersion'] = $this->packageVersion();
         $payload['result']['capabilities']['evo']['toolsetVersion'] = (string)config('cms.settings.eMCP.toolset_version', '1.0');
+        // Which site this is and which domains the installation serves, so an agent told "put
+        // it on site.com" can check rather than guess (one installation may serve several).
+        $payload['result']['serverInfo']['site'] = \EvolutionCMS\eMCP\Support\SiteDomains::describe(
+            function_exists('request') ? (string)request()->getHttpHost() : null
+        );
 
         $response->setContent(json_encode($payload, JSON_UNESCAPED_SLASHES));
     }

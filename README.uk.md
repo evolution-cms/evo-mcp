@@ -84,6 +84,21 @@ php artisan make:mcp-tool HealthTool
 5. Опційний async:
 - встанови `queue.driver=stask`, перевір наявність `sTask`, використовуй dispatch endpoint для довгих задач.
 
+### Скіли Claude Code
+Репозиторій є маркетплейсом плагінів Claude Code. Його скіли навчають агента користуватися
+інструментами: `emcp` (документи, елементи, користувачі, кеш, розширення) і власні плагіни
+доповнень.
+
+```bash
+claude plugin marketplace add evolution-cms/evo-mcp
+claude plugin install emcp@evolution-cms
+claude plugin install aimage@evolution-cms   # приклад - опційно, з elcreator/aimage
+```
+
+Інші агенти можуть використовувати `skills/evolution-cms-mcp/SKILL.md` напряму. Доповнення, що додає
+інструменти, постачає свій скіл у власній теці `skills/` разом із `.claude-plugin/plugin.json` і
+вказується в `.claude-plugin/marketplace.json`.
+
 ## Design Philosophy (Optional Reading)
 ### Навіщо Існує Цей Продукт (4 Базові Питання, Арістотель)
 Це короткий спосіб зрозуміти eMCP як продукт, а не просто набір файлів.
