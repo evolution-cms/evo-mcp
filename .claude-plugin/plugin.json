@@ -1,0 +1,14 @@
+{
+  "name": "emcp",
+  "displayName": "Evolution CMS eMCP",
+  "version": "1.0.0",
+  "description": "Skill for operating Evolution CMS sites through the eMCP server: documents, TVs, templates, chunks, users, cache, and extending eMCP with tools from other extras.",
+  "author": {
+    "name": "Evolution CMS team",
+    "url": "https://evo.im"
+  },
+  "homepage": "https://github.com/evolution-cms/evo-mcp",
+  "repository": "https://github.com/evolution-cms/evo-mcp",
+  "license": "MIT",
+  "keywords": ["evolution-cms", "mcp", "cms", "emcp"]
+}

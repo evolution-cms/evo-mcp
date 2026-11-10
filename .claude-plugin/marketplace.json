@@ -1,0 +1,39 @@
+{
+  "name": "evolution-cms",
+  "description": "Skills for running Evolution CMS sites through eMCP and the extras that add tools to it.",
+  "owner": {
+    "name": "Evolution CMS",
+    "url": "https://github.com/evolution-cms"
+  },
+  "plugins": [
+    {
+      "name": "emcp",
+      "source": "./",
+      "description": "Core skill: documents, TVs, templates, chunks, users and cache through eMCP, plus how to extend it."
+    },
+    {
+      "name": "aimage",
+      "source": {
+        "source": "github",
+        "repo": "elcreator/aIMage"
+      },
+      "description": "AI image generation, editing and upscaling on an Evo site through aimage.* tools."
+    },
+    {
+      "name": "amount",
+      "source": {
+        "source": "github",
+        "repo": "elcreator/aMount"
+      },
+      "description": "Backups and file transfers between an Evo site and Google Drive, Dropbox, S3 or the user's own computer through amount.* tools."
+    },
+    {
+      "name": "adataforseo",
+      "source": {
+        "source": "github",
+        "repo": "elcreator/aDataForSeo"
+      },
+      "description": "Index coverage, SEO audit findings, page matrix, SERPs, rankings and one-click fixes on an Evo site through adataforseo.* tools."
+    }
+  ]
+}
