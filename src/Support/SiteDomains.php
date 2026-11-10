@@ -16,22 +16,45 @@ use Throwable;
  * Evo derives it from the Host header unless it is pinned, so it would turn whatever host a
  * client sends into a "known" domain. The request host and the base URL are only reported when
  * this installation declares their host (or declares nothing): a Host header is the client's word.
+ *
+ * The domain list itself is only reported to managers with Evo's `settings` permission, the one
+ * sMultisite's domain page sits behind; others get the rest without `domains`. Whether the
+ * current host is declared is no secret: the site answers on it or not.
  */
 final class SiteDomains
 {
-    /** @return array{host: ?string, url: ?string, name: string, domains: array<int, string>} */
+    /** @return array{host: ?string, url: ?string, name: string, domains?: array<int, string>} */
     public static function describe(?string $requestHost = null): array
     {
         $domains = self::all();
         $host = $requestHost !== null ? self::normalise($requestHost) : '';
         $url = ManagerUrl::siteBase();
 
-        return [
+        $site = [
             'host' => self::isTrusted($host, $domains) ? $host : null,
             'url' => self::isTrusted(self::normalise($url), $domains) ? $url : null,
             'name' => function_exists('evo') ? (string)evo()->getConfig('site_name') : '',
-            'domains' => $domains,
         ];
+
+        if (self::mayListDomains()) {
+            $site['domains'] = $domains;
+        }
+
+        return $site;
+    }
+
+    /** The current manager (session or token owner) holds `settings`; no manager identity means no. */
+    private static function mayListDomains(): bool
+    {
+        if (!function_exists('evo')) {
+            return false;
+        }
+
+        try {
+            return evo()->isLoggedIn('mgr') && (bool)evo()->hasPermission('settings', 'mgr');
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /** @return array<int, string> lower-case hosts, default ports dropped */

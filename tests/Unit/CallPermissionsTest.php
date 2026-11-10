@@ -163,10 +163,23 @@ namespace {
     assertTrue(SiteDomains::normalise('https://WWW.Site.com:443/x') === 'www.site.com', 'normalise drops scheme, case and default port');
     assertTrue(SiteDomains::normalise('site.com:8080') === 'site.com:8080', 'normalise keeps a non-default port');
     putenv('EVO_SITE_HOSTNAMES=site.com,shop.site.com');
+    $evoState['loggedIn'] = true;
+    $evoState['permissions'] = ['emcp', 'settings'];
     $described = SiteDomains::describe('Shop.Site.com');
     assertTrue($described['host'] === 'shop.site.com', 'a declared host is reported');
-    assertTrue(in_array('site.com', $described['domains'], true), 'the declared domains are listed');
+    assertTrue(in_array('site.com', $described['domains'], true), 'the declared domains are listed to a manager with settings');
     assertTrue(SiteDomains::describe('evil.example')['host'] === null, 'an undeclared Host header is not taken as the site');
+
+    // Without `settings` (as on sMultisite's domain page) the list stays hidden; the current host does not.
+    $evoState['permissions'] = ['emcp'];
+    $described = SiteDomains::describe('shop.site.com');
+    assertTrue(!array_key_exists('domains', $described), 'a manager without settings must not get the domain list');
+    assertTrue($described['host'] === 'shop.site.com', 'a manager without settings still learns the declared current host');
+    assertTrue(SiteDomains::describe('evil.example')['host'] === null, 'without settings an undeclared host is still not reported');
+    $evoState['loggedIn'] = false;
+    $evoState['permissions'] = ['settings'];
+    assertTrue(!array_key_exists('domains', SiteDomains::describe('shop.site.com')), 'no manager identity must not get the domain list');
+    $evoState['permissions'] = [];
 
     // site_url derived from the Host header (Evo's default when it is not pinned) is not a declared domain.
     $evoState['config']['site_url'] = 'http://evil.example/';

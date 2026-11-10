@@ -400,9 +400,8 @@ namespace {
             'host' => null,
             'url' => 'https://example.test/cms/',
             'name' => '',
-            'domains' => ['example.test', 'shop.example.test'],
         ],
-        'initialize should inject the site URL and normalised domains without inventing a request host'
+        'initialize should inject the site URL without inventing a request host, and no domain list without a manager holding settings'
     );
 
     $streamRequest = new \Illuminate\Http\Request(json_encode([
