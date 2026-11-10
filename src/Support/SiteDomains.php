@@ -12,21 +12,23 @@ use Throwable;
  * (`serverInfo.site`): the host of this request, the site's name and base URL, and every
  * domain from sMultisite (when installed) and EVO_SITE_HOSTNAMES.
  *
- * The request host is only reported as the site when this installation declares it (or
- * declares nothing): a Host header is the client's word.
+ * Only those two sources are trusted. The site's base URL (EVO_SITE_URL / site_url) is not:
+ * Evo derives it from the Host header unless it is pinned, so it would turn whatever host a
+ * client sends into a "known" domain. The request host and the base URL are only reported when
+ * this installation declares their host (or declares nothing): a Host header is the client's word.
  */
 final class SiteDomains
 {
-    /** @return array{host: ?string, url: string, name: string, domains: array<int, string>} */
+    /** @return array{host: ?string, url: ?string, name: string, domains: array<int, string>} */
     public static function describe(?string $requestHost = null): array
     {
         $domains = self::all();
         $host = $requestHost !== null ? self::normalise($requestHost) : '';
-        $known = $host !== '' && ($domains === [] || in_array($host, $domains, true));
+        $url = ManagerUrl::siteBase();
 
         return [
-            'host' => $known ? $host : null,
-            'url' => ManagerUrl::siteBase(),
+            'host' => self::isTrusted($host, $domains) ? $host : null,
+            'url' => self::isTrusted(self::normalise($url), $domains) ? $url : null,
             'name' => function_exists('evo') ? (string)evo()->getConfig('site_name') : '',
             'domains' => $domains,
         ];
@@ -53,12 +55,13 @@ final class SiteDomains
             $out[] = self::normalise($host);
         }
 
-        $site = self::normalise(ManagerUrl::siteBase());
-        if ($site !== '' && !in_array(preg_replace('/:\d+$/', '', $site), ['localhost', '127.0.0.1'], true)) {
-            $out[] = $site;
-        }
-
         return array_values(array_unique(array_filter($out, static fn(string $h): bool => $h !== '')));
+    }
+
+    /** @param array<int, string> $domains */
+    private static function isTrusted(string $host, array $domains): bool
+    {
+        return $host !== '' && ($domains === [] || in_array($host, $domains, true));
     }
 
     public static function normalise(string $value): string
