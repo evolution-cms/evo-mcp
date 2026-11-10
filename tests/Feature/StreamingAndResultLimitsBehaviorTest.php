@@ -325,7 +325,12 @@ namespace {
     require_once __DIR__ . '/../../src/Support/TraceContext.php';
     require_once __DIR__ . '/../../src/Support/TransportError.php';
     require_once __DIR__ . '/../../src/Support/JsonRpcPayload.php';
+    require_once __DIR__ . '/../../src/Support/ManagerUrl.php';
+    require_once __DIR__ . '/../../src/Support/SiteDomains.php';
     require_once __DIR__ . '/../../src/Http/Controllers/McpManagerController.php';
+
+    define('EVO_SITE_URL', 'https://example.test/cms/');
+    putenv('EVO_SITE_HOSTNAMES=EXAMPLE.TEST:443,shop.example.test');
 
     /** @var array<string,mixed> $configValues */
     $configValues = [
@@ -390,6 +395,15 @@ namespace {
     $initBodyOk = json_decode($initializeResponseOk->getContent(), true);
     assertTrue(($initBodyOk['result']['serverInfo']['platform'] ?? null) === 'eMCP', 'initialize should inject platform metadata');
     assertTrue(($initBodyOk['result']['capabilities']['evo']['toolsetVersion'] ?? null) === '1.0', 'initialize should inject toolsetVersion');
+    assertTrue(
+        ($initBodyOk['result']['serverInfo']['site'] ?? null) === [
+            'host' => null,
+            'url' => 'https://example.test/cms/',
+            'name' => '',
+            'domains' => ['example.test', 'shop.example.test'],
+        ],
+        'initialize should inject the site URL and normalised domains without inventing a request host'
+    );
 
     $streamRequest = new \Illuminate\Http\Request(json_encode([
         'jsonrpc' => '2.0',
