@@ -70,5 +70,12 @@ namespace {
         'Required tools must not repeat'
     );
 
+    // extra-integration.yml passes these options; renaming one breaks every Extra's CI.
+    $signature = (string)(new ReflectionProperty($command, 'signature'))->getValue($command);
+    assertRequirement(
+        str_contains($signature, '{--expect-tool=*') && str_contains($signature, '{--user='),
+        'emcp:test must keep the --expect-tool and --user options used by the reusable Extra workflow'
+    );
+
     echo "eMCP test command requirement checks passed.\n";
 }

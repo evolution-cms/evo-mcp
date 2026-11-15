@@ -19,6 +19,11 @@ on:
         type: string
         required: false
         default: content
+      run_as:
+        description: Manager (username or id) tools/list is evaluated as; empty lists anonymously, which hides tools that require a permission
+        type: string
+        required: false
+        default: admin
       expected_tools:
         description: Tool names (space or newline separated) the Extra contributes; each must be listed by tools/list
         type: string
@@ -164,6 +169,7 @@ jobs:
         env:
           SERVER_HANDLE: ${{ inputs.server_handle }}
           EXPECTED_TOOLS: ${{ inputs.expected_tools }}
+          RUN_AS: ${{ inputs.run_as }}
           EVO_REF: ${{ inputs.evo_ref }}
           EMCP_REF: ${{ inputs.emcp_ref }}
           PHP_VERSION: ${{ inputs.php_version }}
@@ -171,6 +177,9 @@ jobs:
         shell: bash
         run: |
           args=(--server="$SERVER_HANDLE")
+          if [ -n "$RUN_AS" ]; then
+            args+=(--user="$RUN_AS")
+          fi
           for tool in $EXPECTED_TOOLS; do
             args+=(--expect-tool="$tool")
           done
@@ -179,6 +188,7 @@ jobs:
             echo "### eMCP integration: $EXTRA_PACKAGE"
             echo
             echo "- Evolution CMS: \`$EVO_REF\`, eMCP: \`$EMCP_REF\`, PHP $PHP_VERSION"
+            echo "- Listed as: ${RUN_AS:-anonymous}"
             echo "- Expected tools: ${EXPECTED_TOOLS:-none (protocol checks only)}"
             echo
             echo '```'

@@ -6,7 +6,9 @@ namespace EvolutionCMS\eMCP\Console\Commands;
 
 use EvolutionCMS\eMCP\Http\Controllers\McpManagerController;
 use EvolutionCMS\eMCP\Servers\ContentServer;
+use EvolutionCMS\eMCP\Services\ManagerIdentity;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
+use EvolutionCMS\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -22,7 +24,8 @@ class eMcpTestCommand extends Command
 {
     protected $signature = 'emcp:test
         {--server= : Test a specific server handle}
-        {--expect-tool=* : Tool name that must be listed by tools/list (repeatable)}';
+        {--expect-tool=* : Tool name that must be listed by tools/list (repeatable)}
+        {--user= : Manager id or username to list tools as (tools requiring a permission are hidden otherwise)}';
 
     protected $description = 'Run Gate A smoke checks for initialize/tools:list contract.';
 
@@ -35,6 +38,46 @@ class eMcpTestCommand extends Command
     public function handle(ServerRegistry $registry): int
     {
         $this->line('Running eMCP Gate A smoke checks...');
+
+        $userOption = trim((string)$this->option('user'));
+        if ($userOption === '') {
+            return $this->runChecks($registry);
+        }
+
+        $user = $this->findUser($userOption);
+        if ($user === null) {
+            $this->error("Manager user [{$userOption}] not found.");
+            return self::FAILURE;
+        }
+
+        /** @var ManagerIdentity $identity */
+        $identity = app()->make(ManagerIdentity::class);
+        $reason = $identity->refusalReason($user);
+        if ($reason !== null) {
+            $this->error("Manager user [{$userOption}] may not act through MCP: {$reason}.");
+            return self::FAILURE;
+        }
+
+        $this->line("Acting as manager: {$user->username} (id {$user->getKey()})");
+
+        return (int)$identity->runAs($user, fn(): int => $this->runChecks($registry));
+    }
+
+    /**
+     * Without a manager, tools/list hides every tool that requires a permission,
+     * which covers most tools contributed by Extras.
+     */
+    private function findUser(string $idOrName): ?User
+    {
+        $query = User::query()->with('attributes');
+
+        return ctype_digit($idOrName)
+            ? $query->find((int)$idOrName)
+            : $query->where('username', $idOrName)->first();
+    }
+
+    private function runChecks(ServerRegistry $registry): int
+    {
 
         $servers = $registry->allEnabled();
         if ($servers === []) {
