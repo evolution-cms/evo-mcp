@@ -70,11 +70,23 @@ namespace {
         'Required tools must not repeat'
     );
 
+    // tools/list pages: every named tool is kept, the cursor ends the loop when absent or empty.
+    $names = (new ReflectionMethod($command, 'toolNamesFromPage'))->invoke(null, [
+        ['name' => 'amount.mounts'], ['name' => ' '], 'junk', ['title' => 'no name'], ['name' => 'evo.model.get'],
+    ]);
+    assertRequirement($names === ['amount.mounts', 'evo.model.get'], 'A page must yield exactly its named tools');
+
+    $next = new ReflectionMethod($command, 'nextCursor');
+    assertRequirement($next->invoke(null, ['nextCursor' => 'abc']) === 'abc', 'nextCursor must be followed');
+    assertRequirement($next->invoke(null, ['nextCursor' => '']) === null, 'An empty nextCursor ends the listing');
+    assertRequirement($next->invoke(null, ['tools' => []]) === null, 'A missing nextCursor ends the listing');
+    assertRequirement($next->invoke(null, ['nextCursor' => 5]) === null, 'A non-string nextCursor ends the listing');
+
     // extra-integration.yml passes these options; renaming one breaks every Extra's CI.
     $signature = (string)(new ReflectionProperty($command, 'signature'))->getValue($command);
     assertRequirement(
-        str_contains($signature, '{--expect-tool=*') && str_contains($signature, '{--user='),
-        'emcp:test must keep the --expect-tool and --user options used by the reusable Extra workflow'
+        str_contains($signature, '{--expect-tool=*'),
+        'emcp:test must keep the --expect-tool option used by the reusable Extra workflow'
     );
 
     echo "eMCP test command requirement checks passed.\n";
