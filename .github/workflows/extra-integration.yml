@@ -1,0 +1,197 @@
+name: Extra MCP integration
+
+on:
+  workflow_call:
+    inputs:
+      evo_ref:
+        type: string
+        required: false
+        default: 3.5.x
+      emcp_ref:
+        type: string
+        required: false
+        default: main
+      php_version:
+        type: string
+        required: false
+        default: '8.4'
+      server_handle:
+        type: string
+        required: false
+        default: content
+      expected_tools:
+        description: Tool names (space or newline separated) the Extra contributes; each must be listed by tools/list
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout calling Extra
+        uses: actions/checkout@v4
+        with:
+          path: extra
+
+      - name: Checkout eMCP
+        uses: actions/checkout@v4
+        with:
+          repository: evolution-cms/evo-mcp
+          ref: ${{ inputs.emcp_ref }}
+          path: emcp
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php_version }}
+          extensions: sqlite3, pdo_sqlite, mbstring, xml, curl, gd, zip, intl
+          tools: composer:v2
+          coverage: none
+
+      # A CMS build pulls a few hundred dist archives from api.github.com, which
+      # rate-limits anonymous callers; the run's own token lifts that.
+      - name: Authenticate Composer against GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: composer config --global --auth github-oauth.github.com "$GH_TOKEN"
+
+      - name: Download Evolution CMS
+        env:
+          EVO_REF: ${{ inputs.evo_ref }}
+        run: git clone --depth 1 --branch "$EVO_REF" https://github.com/evolution-cms/evolution.git evo
+
+      - name: Install Evolution CMS dependencies
+        working-directory: evo/core
+        env:
+          COMPOSER_ALLOW_SUPERUSER: '1'
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress
+
+      # A clean CMS first, then the packages, as on a real site: with eMCP (and its sTask)
+      # already in vendor, the CLI installer runs their migrations without recording them,
+      # and the later migrate stops at "table already exists".
+      - name: Install test Evolution CMS using SQLite
+        working-directory: evo/install
+        run: |
+          php cli-install.php \
+            --typeInstall=1 \
+            --databaseType=sqlite \
+            --database=evolution \
+            --tablePrefix=evo_ \
+            --cmsAdmin=admin \
+            --cmsAdminEmail=admin@example.com \
+            --cmsPassword=IntegrationOnly123 \
+            --language=en \
+            --removeInstall=y \
+            --skipComposer=y < /dev/null
+
+      - name: Add local Extra and eMCP as Composer path repositories
+        env:
+          EXTRA_PATH: ${{ github.workspace }}/extra
+          EMCP_PATH: ${{ github.workspace }}/emcp
+          EVO_PATH: ${{ github.workspace }}/evo
+        run: |
+          php <<'PHP'
+          <?php
+          $extraPath = getenv('EXTRA_PATH');
+          $emcpPath = getenv('EMCP_PATH');
+          $evoPath = getenv('EVO_PATH');
+          $composer = json_decode(file_get_contents($extraPath . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+          $package = $composer['name'] ?? null;
+          if (!is_string($package) || !preg_match('~^[a-z0-9_.-]+/[a-z0-9_.-]+$~i', $package)) {
+              fwrite(STDERR, "Extra composer.json must define a valid package name\n");
+              exit(1);
+          }
+          // Evo merges core/custom/composer.json via composer-merge-plugin, which prefixes
+          // "custom/" to every path repository URL, so URLs must be relative to core/custom.
+          $customDir = $evoPath . '/core/custom';
+          $relative = static function (string $target) use ($customDir): string {
+              $from = explode('/', trim($customDir, '/'));
+              $to = explode('/', trim(realpath($target), '/'));
+              while ($from !== [] && $to !== [] && $from[0] === $to[0]) {
+                  array_shift($from);
+                  array_shift($to);
+              }
+              return str_repeat('../', count($from)) . implode('/', $to);
+          };
+          $custom = [
+              'name' => 'evolutioncms/custom',
+              'minimum-stability' => 'dev',
+              'prefer-stable' => true,
+              'repositories' => [
+                  ['type' => 'path', 'url' => $relative($extraPath), 'options' => ['symlink' => true]],
+                  ['type' => 'path', 'url' => $relative($emcpPath), 'options' => ['symlink' => true]],
+              ],
+              'require' => [
+                  $package => '*@dev',
+                  'evolution-cms/emcp' => '*@dev',
+              ],
+              'autoload' => ['psr-4' => new stdClass()],
+          ];
+          $destination = $evoPath . '/core/custom/composer.json';
+          if (!is_dir(dirname($destination))) {
+              mkdir(dirname($destination), 0775, true);
+          }
+          file_put_contents($destination, json_encode($custom, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+          file_put_contents(getenv('GITHUB_ENV'), 'EXTRA_PACKAGE=' . $package . "\n", FILE_APPEND);
+          PHP
+
+      - name: Install Extra and eMCP dependencies
+        working-directory: evo/core
+        env:
+          COMPOSER_ALLOW_SUPERUSER: '1'
+          COMPOSER_MEMORY_LIMIT: '-1'
+        run: composer update --no-dev --no-interaction --prefer-dist --no-progress --with-all-dependencies "$EXTRA_PACKAGE" evolution-cms/emcp
+
+      - name: Register packages and run migrations
+        working-directory: evo/core
+        shell: bash
+        run: |
+          rm -f storage/cache/env.php
+          php artisan package:discover
+          php artisan vendor:publish --provider='EvolutionCMS\eMCP\eMCPServiceProvider' --tag=emcp-config --force --no-interaction
+          php artisan vendor:publish --provider='EvolutionCMS\eMCP\eMCPServiceProvider' --tag=emcp-mcp-config --force --no-interaction
+          php artisan migrate --force --no-interaction
+          # artisan migrate exits 0 even when a migration fails, so check what is left.
+          php artisan migrate:status --no-interaction | tee "$RUNNER_TEMP/migrate-status.txt"
+          if grep -q 'Pending' "$RUNNER_TEMP/migrate-status.txt"; then
+            echo '::error::Migrations are still pending after migrate'
+            exit 1
+          fi
+
+      - name: Verify eMCP and Extra installation
+        working-directory: evo/core
+        run: |
+          composer show evolution-cms/emcp
+          composer show "$EXTRA_PACKAGE"
+          php artisan emcp:list-servers
+
+      - name: Verify MCP initialize and tools/list
+        working-directory: evo/core
+        env:
+          SERVER_HANDLE: ${{ inputs.server_handle }}
+          EXPECTED_TOOLS: ${{ inputs.expected_tools }}
+          EVO_REF: ${{ inputs.evo_ref }}
+          EMCP_REF: ${{ inputs.emcp_ref }}
+          PHP_VERSION: ${{ inputs.php_version }}
+        # bash with pipefail, so a failing emcp:test is not hidden by tee.
+        shell: bash
+        run: |
+          args=(--server="$SERVER_HANDLE")
+          for tool in $EXPECTED_TOOLS; do
+            args+=(--expect-tool="$tool")
+          done
+          php artisan emcp:test "${args[@]}" | tee "$RUNNER_TEMP/emcp-test.log"
+          {
+            echo "### eMCP integration: $EXTRA_PACKAGE"
+            echo
+            echo "- Evolution CMS: \`$EVO_REF\`, eMCP: \`$EMCP_REF\`, PHP $PHP_VERSION"
+            echo "- Expected tools: ${EXPECTED_TOOLS:-none (protocol checks only)}"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/emcp-test.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

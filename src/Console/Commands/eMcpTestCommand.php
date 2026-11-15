@@ -20,9 +20,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class eMcpTestCommand extends Command
 {
-    protected $signature = 'emcp:test {--server= : Test a specific server handle}';
+    protected $signature = 'emcp:test
+        {--server= : Test a specific server handle}
+        {--expect-tool=* : Tool name that must be listed by tools/list (repeatable)}';
 
     protected $description = 'Run Gate A smoke checks for initialize/tools:list contract.';
+
+    /** Guards against a server that never stops returning nextCursor. */
+    private const MAX_TOOL_PAGES = 100;
 
     /**
      * Execute initialize and tools/list against the selected server handle.
@@ -108,56 +113,63 @@ class eMcpTestCommand extends Command
 
         $this->info('initialize: OK');
 
-        $toolsListPayload = [
-            'jsonrpc' => '2.0',
-            'id' => 'tools-1',
-            'method' => 'tools/list',
-            'params' => (object)[],
-        ];
-
-        $toolsList = $this->dispatchJsonRpc($serverHandle, $toolsListPayload, $sessionId);
-        if (isset($toolsList['error'])) {
-            $this->error($toolsList['error']);
-            return self::FAILURE;
-        }
-
-        $toolsListResponse = $toolsList['response'] ?? null;
-        if (!$toolsListResponse instanceof HttpResponse) {
-            $this->error('tools/list returned unexpected response type.');
-            return self::FAILURE;
-        }
-
-        if ($toolsListResponse->getStatusCode() !== 200) {
-            $this->error('tools/list failed with HTTP ' . $toolsListResponse->getStatusCode());
-            $this->line((string)$toolsListResponse->getContent());
-            return self::FAILURE;
-        }
-
-        $toolsListJson = $this->decodeJson((string)$toolsListResponse->getContent());
-        if ($toolsListJson === null) {
-            $this->error('tools/list returned invalid JSON payload.');
-            return self::FAILURE;
-        }
-
-        if (!isset($toolsListJson['result']['tools']) || !is_array($toolsListJson['result']['tools'])) {
-            $this->error('tools/list response does not contain result.tools array.');
-            $this->line((string)$toolsListResponse->getContent());
-            return self::FAILURE;
-        }
-
+        // tools/list is paginated (Laravel MCP sends 15 per page), so follow nextCursor.
         $toolNames = [];
-        foreach ($toolsListJson['result']['tools'] as $tool) {
-            if (!is_array($tool)) {
-                continue;
+        $cursor = null;
+        $page = 0;
+        do {
+            if (++$page > self::MAX_TOOL_PAGES) {
+                $this->error('tools/list kept returning nextCursor after ' . self::MAX_TOOL_PAGES . ' pages.');
+                return self::FAILURE;
             }
 
-            $name = trim((string)($tool['name'] ?? ''));
-            if ($name !== '') {
-                $toolNames[] = $name;
-            }
-        }
+            $toolsListPayload = [
+                'jsonrpc' => '2.0',
+                'id' => 'tools-' . $page,
+                'method' => 'tools/list',
+                'params' => $cursor === null ? (object)[] : ['cursor' => $cursor],
+            ];
 
-        $requiredTools = $this->requiredToolsForServer($serverClass);
+            $toolsList = $this->dispatchJsonRpc($serverHandle, $toolsListPayload, $sessionId);
+            if (isset($toolsList['error'])) {
+                $this->error($toolsList['error']);
+                return self::FAILURE;
+            }
+
+            $toolsListResponse = $toolsList['response'] ?? null;
+            if (!$toolsListResponse instanceof HttpResponse) {
+                $this->error('tools/list returned unexpected response type.');
+                return self::FAILURE;
+            }
+
+            if ($toolsListResponse->getStatusCode() !== 200) {
+                $this->error('tools/list failed with HTTP ' . $toolsListResponse->getStatusCode());
+                $this->line((string)$toolsListResponse->getContent());
+                return self::FAILURE;
+            }
+
+            $toolsListJson = $this->decodeJson((string)$toolsListResponse->getContent());
+            if ($toolsListJson === null) {
+                $this->error('tools/list returned invalid JSON payload.');
+                return self::FAILURE;
+            }
+
+            if (!isset($toolsListJson['result']['tools']) || !is_array($toolsListJson['result']['tools'])) {
+                $this->error('tools/list response does not contain result.tools array.');
+                $this->line((string)$toolsListResponse->getContent());
+                return self::FAILURE;
+            }
+
+            $toolNames = array_merge($toolNames, self::toolNamesFromPage($toolsListJson['result']['tools']));
+            $cursor = self::nextCursor($toolsListJson['result']);
+        } while ($cursor !== null);
+
+        $toolNames = array_values(array_unique($toolNames));
+
+        sort($toolNames);
+        $this->line('tools/list returned ' . count($toolNames) . ' tools: ' . implode(', ', $toolNames));
+
+        $requiredTools = $this->requiredToolsForServer($serverClass, (array)$this->option('expect-tool'));
 
         $missingTools = array_values(array_diff($requiredTools, $toolNames));
         if ($missingTools !== []) {
@@ -172,22 +184,65 @@ class eMcpTestCommand extends Command
     }
 
     /**
+     * Tool names of one tools/list page; entries without a name are skipped.
+     *
+     * @param  array<int|string, mixed>  $tools
+     * @return array<int, string>
+     */
+    private static function toolNamesFromPage(array $tools): array
+    {
+        $names = [];
+        foreach ($tools as $tool) {
+            if (!is_array($tool)) {
+                continue;
+            }
+
+            $name = trim((string)($tool['name'] ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private static function nextCursor(array $result): ?string
+    {
+        $cursor = $result['nextCursor'] ?? null;
+
+        return is_string($cursor) && $cursor !== '' ? $cursor : null;
+    }
+
+    /**
      * Return package-owned tools that must be present for a canonical server.
      *
-     * Third-party servers intentionally receive an empty requirement list so
-     * emcp:test remains a protocol smoke test for arbitrary extensions.
+     * Third-party servers intentionally receive no built-in requirements so
+     * emcp:test remains a protocol smoke test for arbitrary extensions; an
+     * Extra names its own tools through --expect-tool.
      *
+     * @param  array<int, mixed>  $expected
      * @return array<int, string>
      *
      * @since 1.1.0
      */
-    private function requiredToolsForServer(string $serverClass): array
+    private function requiredToolsForServer(string $serverClass, array $expected = []): array
     {
-        if ($serverClass !== ContentServer::class) {
-            return [];
+        $extra = [];
+        foreach ($expected as $name) {
+            $name = is_string($name) ? trim($name) : '';
+            if ($name !== '') {
+                $extra[] = $name;
+            }
         }
 
-        return [
+        if ($serverClass !== ContentServer::class) {
+            return array_values(array_unique($extra));
+        }
+
+        return array_values(array_unique(array_merge([
             'evo.content.search',
             'evo.content.get',
             'evo.content.root_tree',
@@ -197,7 +252,7 @@ class eMcpTestCommand extends Command
             'evo.content.siblings',
             'evo.model.list',
             'evo.model.get',
-        ];
+        ], $extra)));
     }
 
     /**

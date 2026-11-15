@@ -307,6 +307,8 @@ toolset is package-owned and the registry will reject that external server.
 `php artisan emcp:test --server=<handle>` runs generic `initialize` and
 `tools/list` checks for third-party servers. When the selected class is the
 canonical eMCP `ContentServer`, it also verifies the required Evolution toolset.
+Add `--expect-tool=<name>` (repeatable) to fail when a tool an Extra contributes
+is missing; [EXTRA_CI.md](EXTRA_CI.md) wires this into a reusable workflow.
 Use `php artisan emcp:list-servers` to see both accepted servers and concrete
 reasons why configured entries were rejected.
 
