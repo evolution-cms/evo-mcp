@@ -70,6 +70,24 @@ jobs:
           COMPOSER_ALLOW_SUPERUSER: '1'
         run: composer install --no-dev --no-interaction --prefer-dist --no-progress
 
+      # A clean CMS first, then the packages, as on a real site: with eMCP (and its sTask)
+      # already in vendor, the CLI installer runs their migrations without recording them,
+      # and the later migrate stops at "table already exists".
+      - name: Install test Evolution CMS using SQLite
+        working-directory: evo/install
+        run: |
+          php cli-install.php \
+            --typeInstall=1 \
+            --databaseType=sqlite \
+            --database=evolution \
+            --tablePrefix=evo_ \
+            --cmsAdmin=admin \
+            --cmsAdminEmail=admin@example.com \
+            --cmsPassword=IntegrationOnly123 \
+            --language=en \
+            --removeInstall=y \
+            --skipComposer=y < /dev/null
+
       - name: Add local Extra and eMCP as Composer path repositories
         env:
           EXTRA_PATH: ${{ github.workspace }}/extra
@@ -128,29 +146,21 @@ jobs:
           COMPOSER_MEMORY_LIMIT: '-1'
         run: composer update --no-dev --no-interaction --prefer-dist --no-progress --with-all-dependencies "$EXTRA_PACKAGE" evolution-cms/emcp
 
-      - name: Install test Evolution CMS using SQLite
-        working-directory: evo/install
-        run: |
-          php cli-install.php \
-            --typeInstall=1 \
-            --databaseType=sqlite \
-            --database=evolution \
-            --tablePrefix=evo_ \
-            --cmsAdmin=admin \
-            --cmsAdminEmail=admin@example.com \
-            --cmsPassword=IntegrationOnly123 \
-            --language=en \
-            --removeInstall=y \
-            --skipComposer=y < /dev/null
-
       - name: Register packages and run migrations
         working-directory: evo/core
+        shell: bash
         run: |
           rm -f storage/cache/env.php
           php artisan package:discover
           php artisan vendor:publish --provider='EvolutionCMS\eMCP\eMCPServiceProvider' --tag=emcp-config --force --no-interaction
           php artisan vendor:publish --provider='EvolutionCMS\eMCP\eMCPServiceProvider' --tag=emcp-mcp-config --force --no-interaction
           php artisan migrate --force --no-interaction
+          # artisan migrate exits 0 even when a migration fails, so check what is left.
+          php artisan migrate:status --no-interaction | tee "$RUNNER_TEMP/migrate-status.txt"
+          if grep -q 'Pending' "$RUNNER_TEMP/migrate-status.txt"; then
+            echo '::error::Migrations are still pending after migrate'
+            exit 1
+          fi
 
       - name: Verify eMCP and Extra installation
         working-directory: evo/core

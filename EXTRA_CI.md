@@ -20,7 +20,7 @@ jobs:
 
 Inputs (all optional): `evo_ref` (Evolution CMS branch or tag, default `3.5.x`), `emcp_ref` (eMCP ref, default `main`), `php_version` (default `8.4`), `server_handle` (default `content`), `expected_tools` (space- or newline-separated tool names, default empty).
 
-The job, in order: installs Evolution CMS dependencies, installs the Extra and eMCP from the checked-out sources, installs the CMS on SQLite, runs `package:discover`, publishes the eMCP config and runs all migrations, shows both packages and the configured servers, then runs `emcp:test`. The run summary contains the `emcp:test` output, including every tool name `tools/list` returned (all pages).
+The job, in order: installs a clean Evolution CMS on SQLite, adds the Extra and eMCP from the checked-out sources (as a site owner adding them later would), runs `package:discover`, publishes the eMCP config, runs all migrations and fails if any is still pending (`artisan migrate` itself exits 0 when one fails), shows both packages and the configured servers, then runs `emcp:test`. The run summary contains the `emcp:test` output, including every tool name `tools/list` returned (all pages).
 
 The caller must have a valid root `composer.json` declaring the Extra's Composer package name. The workflow tests the calling commit rather than a published Packagist version. It does not require a Claude Code plugin, and it does not install optional API credentials.
 
