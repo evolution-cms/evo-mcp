@@ -20,7 +20,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class eMcpTestCommand extends Command
 {
-    protected $signature = 'emcp:test {--server= : Test a specific server handle}';
+    protected $signature = 'emcp:test
+        {--server= : Test a specific server handle}
+        {--expect-tool=* : Tool name that must be listed by tools/list (repeatable)}';
 
     protected $description = 'Run Gate A smoke checks for initialize/tools:list contract.';
 
@@ -157,7 +159,10 @@ class eMcpTestCommand extends Command
             }
         }
 
-        $requiredTools = $this->requiredToolsForServer($serverClass);
+        sort($toolNames);
+        $this->line('tools/list returned ' . count($toolNames) . ' tools: ' . implode(', ', $toolNames));
+
+        $requiredTools = $this->requiredToolsForServer($serverClass, (array)$this->option('expect-tool'));
 
         $missingTools = array_values(array_diff($requiredTools, $toolNames));
         if ($missingTools !== []) {
@@ -174,20 +179,30 @@ class eMcpTestCommand extends Command
     /**
      * Return package-owned tools that must be present for a canonical server.
      *
-     * Third-party servers intentionally receive an empty requirement list so
-     * emcp:test remains a protocol smoke test for arbitrary extensions.
+     * Third-party servers intentionally receive no built-in requirements so
+     * emcp:test remains a protocol smoke test for arbitrary extensions; an
+     * Extra names its own tools through --expect-tool.
      *
+     * @param  array<int, mixed>  $expected
      * @return array<int, string>
      *
      * @since 1.1.0
      */
-    private function requiredToolsForServer(string $serverClass): array
+    private function requiredToolsForServer(string $serverClass, array $expected = []): array
     {
-        if ($serverClass !== ContentServer::class) {
-            return [];
+        $extra = [];
+        foreach ($expected as $name) {
+            $name = is_string($name) ? trim($name) : '';
+            if ($name !== '') {
+                $extra[] = $name;
+            }
         }
 
-        return [
+        if ($serverClass !== ContentServer::class) {
+            return array_values(array_unique($extra));
+        }
+
+        return array_values(array_unique(array_merge([
             'evo.content.search',
             'evo.content.get',
             'evo.content.root_tree',
@@ -197,7 +212,7 @@ class eMcpTestCommand extends Command
             'evo.content.siblings',
             'evo.model.list',
             'evo.model.get',
-        ];
+        ], $extra)));
     }
 
     /**

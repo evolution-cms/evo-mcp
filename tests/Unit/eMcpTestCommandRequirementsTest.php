@@ -52,5 +52,23 @@ namespace {
         'Third-party servers must only receive generic initialize/tools:list checks'
     );
 
+    /** @var array<int, string> $expectedExtension */
+    $expectedExtension = $method->invoke($command, 'Vendor\Project\PingServer', ['amount.mounts', ' ', 'amount.mounts', 7]);
+    assertRequirement(
+        $expectedExtension === ['amount.mounts'],
+        'Third-party servers must require exactly the tools named by --expect-tool'
+    );
+
+    /** @var array<int, string> $expectedCore */
+    $expectedCore = $method->invoke($command, ContentServer::class, ['amount.mounts', 'evo.content.get']);
+    assertRequirement(
+        in_array('amount.mounts', $expectedCore, true) && in_array('evo.content.search', $expectedCore, true),
+        'ContentServer must require both its own toolset and the tools named by --expect-tool'
+    );
+    assertRequirement(
+        count($expectedCore) === count(array_unique($expectedCore)),
+        'Required tools must not repeat'
+    );
+
     echo "eMCP test command requirement checks passed.\n";
 }

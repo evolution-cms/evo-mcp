@@ -19,6 +19,11 @@ on:
         type: string
         required: false
         default: content
+      expected_tools:
+        description: Tool names (space or newline separated) the Extra contributes; each must be listed by tools/list
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -46,6 +51,13 @@ jobs:
           extensions: sqlite3, pdo_sqlite, mbstring, xml, curl, gd, zip, intl
           tools: composer:v2
           coverage: none
+
+      # A CMS build pulls a few hundred dist archives from api.github.com, which
+      # rate-limits anonymous callers; the run's own token lifts that.
+      - name: Authenticate Composer against GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: composer config --global --auth github-oauth.github.com "$GH_TOKEN"
 
       - name: Download Evolution CMS
         env:
@@ -75,13 +87,25 @@ jobs:
               fwrite(STDERR, "Extra composer.json must define a valid package name\n");
               exit(1);
           }
+          // Evo merges core/custom/composer.json via composer-merge-plugin, which prefixes
+          // "custom/" to every path repository URL, so URLs must be relative to core/custom.
+          $customDir = $evoPath . '/core/custom';
+          $relative = static function (string $target) use ($customDir): string {
+              $from = explode('/', trim($customDir, '/'));
+              $to = explode('/', trim(realpath($target), '/'));
+              while ($from !== [] && $to !== [] && $from[0] === $to[0]) {
+                  array_shift($from);
+                  array_shift($to);
+              }
+              return str_repeat('../', count($from)) . implode('/', $to);
+          };
           $custom = [
               'name' => 'evolutioncms/custom',
               'minimum-stability' => 'dev',
               'prefer-stable' => true,
               'repositories' => [
-                  ['type' => 'path', 'url' => $extraPath, 'options' => ['symlink' => true]],
-                  ['type' => 'path', 'url' => $emcpPath, 'options' => ['symlink' => true]],
+                  ['type' => 'path', 'url' => $relative($extraPath), 'options' => ['symlink' => true]],
+                  ['type' => 'path', 'url' => $relative($emcpPath), 'options' => ['symlink' => true]],
               ],
               'require' => [
                   $package => '*@dev',
@@ -139,4 +163,25 @@ jobs:
         working-directory: evo/core
         env:
           SERVER_HANDLE: ${{ inputs.server_handle }}
-        run: php artisan emcp:test --server="$SERVER_HANDLE"
+          EXPECTED_TOOLS: ${{ inputs.expected_tools }}
+          EVO_REF: ${{ inputs.evo_ref }}
+          EMCP_REF: ${{ inputs.emcp_ref }}
+          PHP_VERSION: ${{ inputs.php_version }}
+        # bash with pipefail, so a failing emcp:test is not hidden by tee.
+        shell: bash
+        run: |
+          args=(--server="$SERVER_HANDLE")
+          for tool in $EXPECTED_TOOLS; do
+            args+=(--expect-tool="$tool")
+          done
+          php artisan emcp:test "${args[@]}" | tee "$RUNNER_TEMP/emcp-test.log"
+          {
+            echo "### eMCP integration: $EXTRA_PACKAGE"
+            echo
+            echo "- Evolution CMS: \`$EVO_REF\`, eMCP: \`$EMCP_REF\`, PHP $PHP_VERSION"
+            echo "- Expected tools: ${EXPECTED_TOOLS:-none (protocol checks only)}"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/emcp-test.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
