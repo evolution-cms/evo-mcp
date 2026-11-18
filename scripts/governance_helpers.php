@@ -39,6 +39,11 @@ function governance_parse_toolset(string $toolsetPath): array
             continue;
         }
 
+        if (str_starts_with($trimmed, '### 4.3') || str_starts_with($trimmed, '### 4.4')) {
+            $mode = 'additional';
+            continue;
+        }
+
         if ($mode !== '' && str_starts_with($trimmed, '## 5.')) {
             break;
         }

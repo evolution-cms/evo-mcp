@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Tools\Write;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Contracts\ToolResponses\ItemToolResponse;
 use EvolutionCMS\Legacy\Permissions;
 use EvolutionCMS\Models\ManagerLog;
@@ -124,7 +126,7 @@ abstract class BaseWriteTool extends Tool
         return Response::structured(
             (new ItemToolResponse(
                 $item,
-                (string)config('cms.settings.eMCP.toolset_version', '1.0')
+                ToolContract::VERSION
             ))->toArray()
         );
     }

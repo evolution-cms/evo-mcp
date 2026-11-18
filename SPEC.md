@@ -4,7 +4,7 @@
 Цей документ фіксує **обовʼязкові технічні контракти** для реалізації `eMCP`.
 
 Status markers:
-- `SPEC Version`: `1.0-contract`
+- `SPEC Version`: `2.0-contract`
 - `Runtime Status`: `Gate C baseline validated in demo runtime; RC-1 hardening pending`
 
 Normative hierarchy:
@@ -16,11 +16,11 @@ Current validation snapshot (2026-03-03):
 - `make demo-all` PASS (install + smoke + runtime integration).
 - `php artisan emcp:test` PASS for `initialize` and `tools/list`.
 - Runtime HTTP integration PASS for `/api/v1/mcp/{server}`.
-- Verified content-read tool flow in runtime (`evo.content.search`, `evo.content.root_tree`, `evo.content.get`).
+- Verified content-read tool flow in runtime (`evo.content.search`, `evo.content.tree`, `evo.content.get`).
 - One-click verification writes `demo/logs.md` with request/response evidence, negative transport/security probes (`401/403/413/415/409/429`) and model-safety sanity (`evo.model.get(User)` without sensitive fields).
 - `demo/logs.md` also captures local `sTask` lifecycle proof (`queued -> completed`) in demo runtime.
 - CI/local test baseline now includes: `ScopePolicy`/`ServerRegistry` unit checks, async failover behavior checks, SiteContent tree/TV contract checks, security guardrail checks, docs/config/commands consistency checks, upstream adapter smoke checks.
-- Optional advanced tree tools (`neighbors`, `prev/next siblings`, `children/siblings range`) are implemented and covered by contract/runtime integration tests.
+- Tree and sibling modes are defined in TOOLSET.md for version 2.0.
 - Streaming policy now enforces proxy/FPM-safe SSE headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`) with dedicated tests.
 - CI includes migration matrix automation for `sqlite/mysql/pgsql`.
 - CI/check flow now produces reproducible benchmark and leaderboard artifacts.
@@ -535,7 +535,7 @@ Safety:
 `initialize` response MUST include:
 - `serverInfo.platform = "eMCP"`.
 - `serverInfo.platformVersion = <current-package-version>`.
-- `capabilities.evo.toolsetVersion = "1.0"` (or current toolset version).
+- `capabilities.evo.toolsetVersion = "2.0"` (or current toolset version).
 - This metadata is part of the public contract and required for version-aware ecosystem integrations.
 - Missing metadata is a breaking contract change.
 
@@ -577,26 +577,15 @@ The project MUST NOT mix styles for the same failure class.
 `eMCP` MUST ship (or provide canonical stubs for) tool names:
 - `evo.content.search`
 - `evo.content.get`
-- `evo.content.root_tree`
-- `evo.content.descendants`
+- `evo.content.tree`
 - `evo.content.ancestors`
-- `evo.content.children`
 - `evo.content.siblings`
 
 Behavior mapping to Evo model API:
 - `evo.content.search` -> `SiteContent` query + optional `scopeActive|scopePublished|scopeWithoutProtected|scopeWithTVs|scopeTvFilter|scopeTvOrderBy|scopeTagsData|scopeOrderByDate`.
-- `evo.content.root_tree` -> `scopeGetRootTree(depth)` + `withTVs(..., ':', true)` + `toTree`.
-- `evo.content.descendants` -> `scopeDescendantsOf(id)` (optional depth cap via `where('depth', '<', maxDepth + 1)`).
+- `evo.content.tree` uses closure-table descendants for deeper traversal and direct parent selection for one level.
 - `evo.content.ancestors` -> `scopeAncestorsOf(id)` + default `orderBy('depth', 'desc')`.
-- `evo.content.children` -> direct children (`parent = id`) or `getChildren()`.
-- `evo.content.siblings` -> `scopeSiblingsOf(id)` and related sibling selectors when requested.
-
-Advanced optional tools (implemented, non-canonical):
-- `evo.content.neighbors` -> `scopeNeighborsOf(id)`.
-- `evo.content.prev_siblings` -> `scopePrevSiblingsOf(id)`.
-- `evo.content.next_siblings` -> `scopeNextSiblingsOf(id)`.
-- `evo.content.children_range` -> `scopeChildrenRangeOf(id, from, to)`.
-- `evo.content.siblings_range` -> `scopeSiblingsRangeOf(id, from, to)`.
+- `evo.content.siblings` resolves the visible anchor and uses its parent and (menuindex, ID) for selection.
 
 ## 10.3 `SiteContent` request/validation contract
 Input for `evo.content.*` MUST be structured JSON (not raw SQL fragments):
@@ -835,7 +824,7 @@ Required keys:
 - GET returns 405.
 - `tools/list`, `resources/read`, `tools/call` contracts.
 - Streaming response headers/content type.
-- `evo.content.search/get/root_tree/descendants/ancestors` on real `SiteContent`.
+- `evo.content.search/get/tree/ancestors/siblings` on real `SiteContent`.
 - TV filters/order and default TV fallback (`:d`) on controlled fixtures.
 - Trace id propagation from request -> response -> audit.
 - Golden fixtures for canonical tools (`initialize`, `tools/list`, `evo.content.search`, `evo.content.get`) MUST pass in CI.

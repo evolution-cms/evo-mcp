@@ -322,6 +322,7 @@ namespace {
         }
     }
 
+    require_once __DIR__ . '/../../src/Support/ToolContract.php';
     require_once __DIR__ . '/../../src/Support/TraceContext.php';
     require_once __DIR__ . '/../../src/Support/TransportError.php';
     require_once __DIR__ . '/../../src/Support/JsonRpcPayload.php';
@@ -337,7 +338,6 @@ namespace {
         'app.debug' => false,
         'cms.settings.eMCP.trace.header' => 'X-Trace-Id',
         'cms.settings.eMCP.trace.generate_if_missing' => true,
-        'cms.settings.eMCP.toolset_version' => '1.0',
         'cms.settings.eMCP.limits.max_payload_kb' => 256,
         'cms.settings.eMCP.limits.max_result_bytes' => 32,
         'cms.settings.eMCP.stream.enabled' => false,
@@ -394,7 +394,7 @@ namespace {
     assertTrue($initializeResponseOk->getStatusCode() === 200, 'initialize should pass when result size is within limits');
     $initBodyOk = json_decode($initializeResponseOk->getContent(), true);
     assertTrue(($initBodyOk['result']['serverInfo']['platform'] ?? null) === 'eMCP', 'initialize should inject platform metadata');
-    assertTrue(($initBodyOk['result']['capabilities']['evo']['toolsetVersion'] ?? null) === '1.0', 'initialize should inject toolsetVersion');
+    assertTrue(($initBodyOk['result']['capabilities']['evo']['toolsetVersion'] ?? null) === '2.0', 'initialize should inject toolsetVersion');
     assertTrue(
         ($initBodyOk['result']['serverInfo']['site'] ?? null) === [
             'host' => null,

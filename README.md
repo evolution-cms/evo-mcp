@@ -278,8 +278,8 @@ eMCP is the MCP platform layer for the Evo ecosystem:
 This keeps the core declarative and neutral: one MCP foundation for multiple orchestration concepts.
 
 ## Evo Domain Tools
-- Implemented now: `evo.content.search|get|root_tree|descendants|ancestors|children|siblings`
-- Optional (implemented): `evo.content.neighbors|prev_siblings|next_siblings|children_range|siblings_range`
+- Implemented now: `evo.content.search|get|tree|ancestors|siblings`
+- [Migration from toolset 1.0](TOOLSET.md#migration-from-toolset-10).
 - TV-aware queries via structured `with_tvs`, `tv_filters`, `tv_order`
 - `evo.model.list|get` implemented with per-model explicit allowlist projection and sensitive-field defense-in-depth blacklist
 

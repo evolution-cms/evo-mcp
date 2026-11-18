@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Console\Commands;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Http\Controllers\McpManagerController;
 use EvolutionCMS\eMCP\Servers\ContentServer;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
@@ -245,13 +247,18 @@ class eMcpTestCommand extends Command
         return array_values(array_unique(array_merge([
             'evo.content.search',
             'evo.content.get',
-            'evo.content.root_tree',
-            'evo.content.descendants',
+            'evo.content.tree',
             'evo.content.ancestors',
-            'evo.content.children',
             'evo.content.siblings',
             'evo.model.list',
             'evo.model.get',
+            'evo.elements.list',
+            'evo.elements.get',
+            'evo.write.content.update',
+            'evo.write.content.create',
+            'evo.write.content.publish',
+            'evo.write.elements.save',
+            'evo.write.cache.clear',
         ], $extra)));
     }
 
@@ -355,7 +362,7 @@ class eMcpTestCommand extends Command
             return false;
         }
 
-        $expectedToolsetVersion = (string)config('cms.settings.eMCP.toolset_version', '1.0');
+        $expectedToolsetVersion = ToolContract::VERSION;
         if ($toolsetVersion !== $expectedToolsetVersion) {
             $this->error(
                 'initialize metadata missing/invalid capabilities.evo.toolsetVersion. ' .

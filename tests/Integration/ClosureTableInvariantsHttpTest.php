@@ -156,17 +156,17 @@ $rootResp = postJson($url, [
     'id' => 'closure-root',
     'method' => 'tools/call',
     'params' => [
-        'name' => 'evo.content.root_tree',
-        'arguments' => ['depth' => 4, 'limit' => 50, 'offset' => 0],
+        'name' => 'evo.content.tree',
+        'arguments' => ['id' => 0, 'depth' => 4, 'limit' => 50, 'offset' => 0],
     ],
 ], $headers);
 if ($rootResp['status'] !== 200) {
-    fail('root_tree expected 200, got ' . $rootResp['status']);
+    fail('tree from root expected 200, got ' . $rootResp['status']);
 }
 
-$rootJson = decodeJson($rootResp['body'], 'root_tree');
+$rootJson = decodeJson($rootResp['body'], 'tree from root');
 if (isset($rootJson['error'])) {
-    fail('root_tree returned JSON-RPC error');
+    fail('tree from root returned JSON-RPC error');
 }
 
 $items = $rootJson['result']['structuredContent']['items'] ?? null;
@@ -184,11 +184,11 @@ foreach ($items as $item) {
 
     $id = (int)($item['id'] ?? 0);
     if ($id < 1) {
-        fail('root_tree item has invalid id');
+        fail('tree from root item has invalid id');
     }
 
     if (isset($byId[$id])) {
-        fail('root_tree returned duplicate id ' . $id);
+        fail('tree from root returned duplicate id ' . $id);
     }
 
     $parent = (int)($item['parent'] ?? 0);
@@ -216,7 +216,7 @@ $ancResp = postJson($url, [
     'method' => 'tools/call',
     'params' => [
         'name' => 'evo.content.ancestors',
-        'arguments' => ['id' => $candidateId, 'depth' => 10, 'limit' => 50, 'offset' => 0],
+        'arguments' => ['id' => $candidateId],
     ],
 ], $headers);
 if ($ancResp['status'] !== 200) {
@@ -253,7 +253,7 @@ $childrenResp = postJson($url, [
     'id' => 'closure-children',
     'method' => 'tools/call',
     'params' => [
-        'name' => 'evo.content.children',
+        'name' => 'evo.content.tree',
         'arguments' => ['id' => $parentId, 'limit' => 100, 'offset' => 0],
     ],
 ], $headers);
@@ -290,15 +290,15 @@ if (!$foundInChildren) {
 }
 
 if ($ancestorIds !== []) {
-    $topAncestorId = (int)array_key_last($ancestorIds);
+    $topAncestorId = (int)array_key_first($ancestorIds);
 
     $descResp = postJson($url, [
         'jsonrpc' => '2.0',
         'id' => 'closure-desc',
         'method' => 'tools/call',
         'params' => [
-            'name' => 'evo.content.descendants',
-            'arguments' => ['id' => $topAncestorId, 'depth' => 10, 'limit' => 200, 'offset' => 0],
+            'name' => 'evo.content.tree',
+            'arguments' => ['id' => $topAncestorId, 'depth' => 3, 'limit' => 100, 'offset' => 0],
         ],
     ], $headers);
     if ($descResp['status'] !== 200) {

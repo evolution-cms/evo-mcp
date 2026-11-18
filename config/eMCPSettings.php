@@ -2,7 +2,6 @@
 
 return [
     'enable' => true,
-    'toolset_version' => '1.0',
 
     'mode' => [
         'internal' => true,

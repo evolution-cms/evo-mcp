@@ -67,16 +67,9 @@ assertContains($baseModel, 'respondStage', 'BaseModelTool must define respond st
 $toolFiles = [
     __DIR__ . '/../../src/Tools/Content/ContentSearchTool.php',
     __DIR__ . '/../../src/Tools/Content/ContentGetTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentRootTreeTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentDescendantsTool.php',
+    __DIR__ . '/../../src/Tools/Content/ContentTreeTool.php',
     __DIR__ . '/../../src/Tools/Content/ContentAncestorsTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentChildrenTool.php',
     __DIR__ . '/../../src/Tools/Content/ContentSiblingsTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentNeighborsTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentPrevSiblingsTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentNextSiblingsTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentChildrenRangeTool.php',
-    __DIR__ . '/../../src/Tools/Content/ContentSiblingsRangeTool.php',
     __DIR__ . '/../../src/Tools/ModelCatalog/ModelListTool.php',
     __DIR__ . '/../../src/Tools/ModelCatalog/ModelGetTool.php',
 ];
@@ -94,9 +87,6 @@ foreach ($toolFiles as $file) {
 $requiredContractFiles = [
     __DIR__ . '/../../src/Contracts/ToolArguments/ContentSearchArgs.php',
     __DIR__ . '/../../src/Contracts/ToolArguments/ContentGetArgs.php',
-    __DIR__ . '/../../src/Contracts/ToolArguments/ContentNodeListArgs.php',
-    __DIR__ . '/../../src/Contracts/ToolArguments/ContentNodeRangeArgs.php',
-    __DIR__ . '/../../src/Contracts/ToolArguments/ContentRootTreeArgs.php',
     __DIR__ . '/../../src/Contracts/ToolArguments/ModelListArgs.php',
     __DIR__ . '/../../src/Contracts/ToolArguments/ModelGetArgs.php',
     __DIR__ . '/../../src/Contracts/ToolResponses/ListToolResponse.php',

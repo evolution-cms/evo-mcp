@@ -20,16 +20,9 @@ $root = dirname(__DIR__, 2);
 $expectedTools = [
     'ContentSearchTool.php' => 'evo.content.search',
     'ContentGetTool.php' => 'evo.content.get',
-    'ContentRootTreeTool.php' => 'evo.content.root_tree',
-    'ContentDescendantsTool.php' => 'evo.content.descendants',
+    'ContentTreeTool.php' => 'evo.content.tree',
     'ContentAncestorsTool.php' => 'evo.content.ancestors',
-    'ContentChildrenTool.php' => 'evo.content.children',
     'ContentSiblingsTool.php' => 'evo.content.siblings',
-    'ContentNeighborsTool.php' => 'evo.content.neighbors',
-    'ContentPrevSiblingsTool.php' => 'evo.content.prev_siblings',
-    'ContentNextSiblingsTool.php' => 'evo.content.next_siblings',
-    'ContentChildrenRangeTool.php' => 'evo.content.children_range',
-    'ContentSiblingsRangeTool.php' => 'evo.content.siblings_range',
 ];
 
 foreach ($expectedTools as $fileName => $toolName) {
@@ -56,43 +49,11 @@ assertContainsText($searchContent, 'buildTvOrderString', 'search must build tv o
 assertContainsText($searchContent, 'resolveLimitOffset', 'search must enforce limit/offset guardrails');
 assertContainsText($searchContent, 'resolveDepth', 'search must enforce depth guardrails');
 
-$treeTools = [
-    'ContentRootTreeTool.php',
-    'ContentDescendantsTool.php',
-    'ContentAncestorsTool.php',
-    'ContentChildrenTool.php',
-    'ContentSiblingsTool.php',
-    'ContentNeighborsTool.php',
-    'ContentPrevSiblingsTool.php',
-    'ContentNextSiblingsTool.php',
-    'ContentChildrenRangeTool.php',
-    'ContentSiblingsRangeTool.php',
-];
-
-foreach ($treeTools as $fileName) {
-    $path = $root . '/src/Tools/Content/' . $fileName;
-    $content = file_get_contents($path);
-    assertTrue(is_string($content), "Unable to read {$fileName}");
-
-    assertContainsText($content, 'resolveLimitOffset', "{$fileName} must enforce limit/offset");
-    assertContainsText($content, 'normalizeWithTvs', "{$fileName} must normalize with_tvs payload");
-    assertContainsText($content, '->where(', "{$fileName} must apply explicit query filters");
-    assertContainsText($content, 'respondList(', "{$fileName} must return list contract response");
-}
-
-$rangeTools = [
-    'ContentChildrenRangeTool.php',
-    'ContentSiblingsRangeTool.php',
-];
-
-foreach ($rangeTools as $fileName) {
-    $path = $root . '/src/Tools/Content/' . $fileName;
-    $content = file_get_contents($path);
-    assertTrue(is_string($content), "Unable to read {$fileName}");
-
-    assertContainsText($content, "'from' => ['required', 'integer', 'min:0']", "{$fileName} must require from range bound");
-    assertContainsText($content, "'to' => ['nullable', 'integer', 'min:0']", "{$fileName} must validate to range bound");
-    assertContainsText($content, 'to must be greater than or equal to from', "{$fileName} must reject invalid ranges");
+foreach (['ContentTreeTool.php', 'ContentAncestorsTool.php', 'ContentSiblingsTool.php'] as $fileName) {
+    $source = file_get_contents($root . '/src/Tools/Content/' . $fileName);
+    assertContainsText($source, 'findAnchor', "{$fileName} must check anchor access");
+    assertContainsText($source, 'tvSchema', "{$fileName} must advertise TV projection");
+    assertContainsText($source, 'respondList(', "{$fileName} must return the list envelope");
 }
 
 echo "SiteContent tree/TV contract checks passed.\n";

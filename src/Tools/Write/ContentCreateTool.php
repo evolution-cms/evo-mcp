@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Tools\Write;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\DocumentManager\Facades\DocumentManager;
 use EvolutionCMS\Exceptions\ServiceActionException;
 use EvolutionCMS\Exceptions\ServiceValidationException;
@@ -18,6 +20,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('evo.write.content.create')]
 #[Description('Create a document under a parent. Requires new_document (and publish_document to create it published).')]
+/** Create a document under an authorized parent and return its ID and state. */
 class ContentCreateTool extends BaseWriteTool
 {
     public function handle(Request $request): ResponseFactory
@@ -114,8 +117,27 @@ class ContentCreateTool extends BaseWriteTool
     {
         return [
             'parent' => $schema->integer()->min(0)->required()->description('Parent document id, 0 for the site root'),
-            'fields' => $schema->object()->required()->description('Document columns; pagetitle is required. Allowed: ' . implode(', ', ContentUpdateTool::WRITABLE_FIELDS)),
-            'tvs' => $schema->object()->description('Template variable values keyed by TV name'),
+            'fields' => $schema->object([
+                'pagetitle' => $schema->string()->required()->description('Title of the new document.'),
+            ])->required()->description('Document columns. Select the parent with the top-level parent argument. Allowed: ' . implode(', ', ContentUpdateTool::WRITABLE_FIELDS)),
+            'tvs' => $schema->object()->nullable()->description('TV values keyed by name for the chosen template.'),
         ];
+    }
+
+    /**
+     * Advertise the structured envelope required by an MCP client.
+     *
+     * @return array<string,mixed>
+     * @since 0.3.0
+     */
+    public function outputSchema(JsonSchema $schema): array
+    {
+        return ToolContract::item($schema, [
+            'id' => $schema->integer()->required(),
+            'parent' => $schema->integer()->required(),
+            'pagetitle' => $schema->string()->required(),
+            'alias' => $schema->string()->nullable()->required(),
+            'published' => $schema->boolean()->required(),
+        ], nullable: false);
     }
 }

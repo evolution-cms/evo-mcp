@@ -9,7 +9,7 @@ Contract boundary:
 - `OPERATIONS.md` is the day-2 operator runbook (profiles, health checks, triage).
 
 Status marker:
-- Contract target: `SPEC 1.0-contract`.
+- Contract target: `SPEC 2.0-contract`.
 - Runtime baseline in current repository: `Gate C baseline implemented (full validation pending)`.
 
 ## 1) Overview
@@ -376,18 +376,11 @@ Canonical source for tool names/params/examples/errors is `TOOLSET.md`.
 Primary domain profile is document tree access via `SiteContent`:
 - `evo.content.search`
 - `evo.content.get`
-- `evo.content.root_tree`
-- `evo.content.descendants`
+- `evo.content.tree`
 - `evo.content.ancestors`
-- `evo.content.children`
 - `evo.content.siblings`
 
-Optional (implemented) tree tools:
-- `evo.content.neighbors`
-- `evo.content.prev_siblings`
-- `evo.content.next_siblings`
-- `evo.content.children_range`
-- `evo.content.siblings_range`
+[Toolset 2.0 migration](TOOLSET.md#migration-from-toolset-10).
 
 TV support is part of the contract:
 - `with_tvs` maps to `withTVs`

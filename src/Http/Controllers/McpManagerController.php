@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Http\Controllers;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Services\AuditLogger;
 use EvolutionCMS\eMCP\Services\SecurityPolicy;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
@@ -228,7 +230,7 @@ class McpManagerController
 
         $payload['result']['serverInfo']['platform'] = 'eMCP';
         $payload['result']['serverInfo']['platformVersion'] = $this->packageVersion();
-        $payload['result']['capabilities']['evo']['toolsetVersion'] = (string)config('cms.settings.eMCP.toolset_version', '1.0');
+        $payload['result']['capabilities']['evo']['toolsetVersion'] = ToolContract::VERSION;
         // Which site this is and which domains the installation serves, so an agent told "put
         // it on site.com" can check rather than guess (one installation may serve several).
         $payload['result']['serverInfo']['site'] = \EvolutionCMS\eMCP\Support\SiteDomains::describe(

@@ -4,7 +4,7 @@ This runbook is for operators of eMCP environments.
 It complements `DOCS.md`/`DOCS.uk.md` with day-2 operational checks.
 
 ## 0) Runtime Status Marker
-- Target profile: `SPEC 1.0-contract`.
+- Target profile: `SPEC 2.0-contract`.
 - Current runtime baseline: `Gate C baseline implemented`.
 - Meaning: manager/API transport path and async dispatch endpoints are implemented; production hardening and full integration coverage remain in progress.
 
@@ -217,3 +217,24 @@ Optional live sTask lifecycle proof:
   - `EMCP_STASK_WORKER_CMD="php artisan stask:worker"`
   - `EMCP_STASK_WORKER_CWD="/path/to/evo/core"`
   - optional `EMCP_STASK_POLL_ATTEMPTS` (default: `20`).
+
+## Toolset 2.0 on a disposable SQLite demo
+
+The migration from toolset 1.0 is in [TOOLSET.md](TOOLSET.md#migration-from-toolset-10).
+Install eMCP and DocumentManager 1.1 or later. To exercise a local pre-release pair,
+use Composer path repositories for both checkouts and assign the DocumentManager
+checkout version 1.1.0 in the path repository's options.versions.
+
+For the write and migration regression test, start the demo web process on
+loopback with PAT auth and write tools enabled. Issue a local admin PAT with
+mcp:read, mcp:call and mcp:write. The test creates fixtures and triggers in the
+database. Run it only on a disposable installation:
+
+```sh
+EMCP_LOCAL_MUTATION_TEST=1 \
+EMCP_LOCAL_MCP_URL=http://127.0.0.1:8787/mcp/content \
+EMCP_LOCAL_SQLITE=/absolute/path/to/demo.sqlite \
+EMCP_LOCAL_CORE=/absolute/path/to/demo/core \
+EMCP_LOCAL_ADMIN_TOKEN="$DEMO_PAT" \
+composer run test:integration:toolset-v2
+```

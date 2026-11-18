@@ -488,26 +488,11 @@ foreach ($targets as $target) {
     }
 
     $advancedCalls = [
-        [
-            'name' => 'evo.content.neighbors',
-            'arguments' => ['id' => 1, 'limit' => 2, 'offset' => 0],
-        ],
-        [
-            'name' => 'evo.content.prev_siblings',
-            'arguments' => ['id' => 1, 'limit' => 2, 'offset' => 0],
-        ],
-        [
-            'name' => 'evo.content.next_siblings',
-            'arguments' => ['id' => 1, 'limit' => 2, 'offset' => 0],
-        ],
-        [
-            'name' => 'evo.content.children_range',
-            'arguments' => ['id' => 1, 'from' => 0, 'to' => 5, 'limit' => 2, 'offset' => 0],
-        ],
-        [
-            'name' => 'evo.content.siblings_range',
-            'arguments' => ['id' => 1, 'from' => 0, 'to' => 5, 'limit' => 2, 'offset' => 0],
-        ],
+        ['name' => 'evo.content.siblings', 'arguments' => ['id' => 1, 'direction' => 'adjacent']],
+        ['name' => 'evo.content.siblings', 'arguments' => ['id' => 1, 'direction' => 'before', 'limit' => 2]],
+        ['name' => 'evo.content.siblings', 'arguments' => ['id' => 1, 'direction' => 'after', 'limit' => 2]],
+        ['name' => 'evo.content.tree', 'arguments' => ['id' => 1, 'menuindex_from' => 0, 'menuindex_to' => 5, 'limit' => 2]],
+        ['name' => 'evo.content.siblings', 'arguments' => ['id' => 1, 'menuindex_from' => 0, 'menuindex_to' => 5, 'limit' => 2]],
     ];
 
     foreach ($advancedCalls as $advancedCall) {
@@ -551,11 +536,11 @@ foreach ($targets as $target) {
         'id' => 'invalid-range-1',
         'method' => 'tools/call',
         'params' => [
-            'name' => 'evo.content.children_range',
+            'name' => 'evo.content.tree',
             'arguments' => [
                 'id' => 1,
-                'from' => 5,
-                'to' => 2,
+                'menuindex_from' => 5,
+                'menuindex_to' => 2,
                 'limit' => 1,
                 'offset' => 0,
             ],
@@ -588,7 +573,7 @@ foreach ($targets as $target) {
         }
 
         $message = strtolower(trim((string)($firstBlock['text'] ?? '')));
-        if ($message === '' || !str_contains($message, 'greater than or equal to from')) {
+        if ($message === '' || !str_contains($message, 'greater than or equal to menuindex_from')) {
             fail("{$label} invalid range isError response missing expected validation message.");
         }
     }
