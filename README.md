@@ -1,11 +1,17 @@
-[![eMCP for Evolution CMS MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/evolution-cms/evo-mcp/badges/card.svg)](https://glama.ai/mcp/servers/evolution-cms/evo-mcp)
+<p align="center">
+  <a href="https://glama.ai/mcp/servers/evolution-cms/evo-mcp">
+    <img src="https://glama.ai/mcp/servers/evolution-cms/evo-mcp/badges/card.svg" alt="eMCP for Evolution CMS quality and maintenance score on Glama">
+  </a>
+</p>
 
-[![Latest Stable Version](https://img.shields.io/packagist/v/evolution-cms/emcp?label=version)](https://packagist.org/packages/evolution-cms/emcp)   
-[![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsLMS%2Fmain%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
-[![Stars](https://img.shields.io/packagist/stars/evolution-cms/emcp)](https://packagist.org/packages/evolution-cms/emcp)
-[![Total Downloads](https://img.shields.io/packagist/dt/evolution-cms/emcp)](https://packagist.org/packages/evolution-cms/emcp)
-[![License](https://img.shields.io/packagist/l/evolution-cms/emcp)](https://packagist.org/packages/evolution-cms/emcp)
-![Made in Ukraine](https://img.shields.io/badge/made_in-Ukraine-ffd700.svg?labelColor=0057b7)
+<p align="center">
+  <a href="https://packagist.org/packages/evolution-cms/emcp"><img src="https://img.shields.io/packagist/v/evolution-cms/emcp?label=version" alt="Latest Stable Version"></a>
+  <a href="https://github.com/evolution-cms/evolution"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsLMS%2Fmain%2Fcomposer.json&amp;query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&amp;label=CMS&amp;prefix=Evolution%20&amp;color=brightgreen" alt="Evolution CMS version requirement"></a>
+  <a href="https://packagist.org/packages/evolution-cms/emcp"><img src="https://img.shields.io/packagist/stars/evolution-cms/emcp" alt="Stars"></a>
+  <a href="https://packagist.org/packages/evolution-cms/emcp"><img src="https://img.shields.io/packagist/dt/evolution-cms/emcp" alt="Total Downloads"></a>
+  <a href="https://packagist.org/packages/evolution-cms/emcp"><img src="https://img.shields.io/packagist/l/evolution-cms/emcp" alt="License"></a>
+  <img src="https://img.shields.io/badge/made_in-Ukraine-ffd700.svg?labelColor=0057b7" alt="Made in Ukraine">
+</p>
 
 # eMCP for Evolution CMS
 
