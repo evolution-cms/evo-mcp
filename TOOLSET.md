@@ -184,7 +184,7 @@ Canonical mapping:
 
 ## Migration from toolset 1.0
 
-Deploy both packages together. Toolset 2.0 requires DocumentManager 1.1.0 for atomic document and TV updates.
+Upgrade to [DocumentManager 1.1.0](https://github.com/evolution-cms/DocumentManager/releases/tag/1.1.0) or a later 1.x release before switching to Toolset 2.0. This release provides the atomic document and TV update API. Composer resolves the published dependency without a local path repository.
 The names below are relative to the `evo.content.` prefix.
 
 | v1 call | v2 call |
