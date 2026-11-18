@@ -14,7 +14,8 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('evo.content.search')]
-#[Description('Search Evolution CMS content with pagination, depth caps, and structured TV filters/order.')]
+#[Description('Search visible documents using field filters, template, publication state, TV values or tags. Use evo.content.get for a known ID or evo.content.tree for a fixed tree relationship.')]
+/** Search accessible documents using structured filters and deterministic paging. */
 class ContentSearchTool extends BaseContentTool
 {
     /**
@@ -169,14 +170,41 @@ class ContentSearchTool extends BaseContentTool
      */
     public function schema(JsonSchema $schema): array
     {
+        $direction = ['asc', 'desc'];
+
         return [
-            'limit' => $schema->integer()->min(1),
-            'offset' => $schema->integer()->min(0)->nullable(),
-            'parent' => $schema->integer()->min(0)->nullable(),
-            'depth' => $schema->integer()->min(1)->nullable(),
-            'order_by' => $schema->string()->nullable(),
-            'order_dir' => $schema->string()->nullable(),
-            'order_by_date' => $schema->string()->nullable(),
-        ];
+            'parent' => $schema->integer()->min(0)->nullable()
+                ->description('Ancestor ID to scope the search to its descendants. Omit to search the site.'),
+            'published' => $schema->boolean()->nullable()->description('Filter by publication state, subject to caller visibility.'),
+            'deleted' => $schema->boolean()->nullable()->default(false)->description('Select trashed documents when true. Defaults to live documents.'),
+            'template' => $schema->integer()->min(0)->nullable()->description('Filter by template ID.'),
+            'hidemenu' => $schema->boolean()->nullable()->description('Filter by the Hide from menu flag.'),
+            'depth' => $schema->integer()->min(1)->nullable()
+                ->description('Maximum levels below parent. Used only with parent and defaults to the server depth limit.'),
+            'with_tvs' => $this->tvSchema($schema),
+            'tv_filters' => $schema->array()->nullable()->items($schema->object([
+                'tv' => $schema->string()->required()->description('TV name.'),
+                'op' => $schema->string()->enum(self::ALLOWED_TV_OPERATORS)->required()->description('Comparison operator.'),
+                'value' => $schema->union(['string', 'number', 'boolean', 'array'])->nullable()
+                    ->description('Operand; omit for null or !null. in and not_in accept a list.'),
+                'cast' => $schema->string()->nullable()->description('Optional numeric comparison cast: SIGNED, UNSIGNED or DECIMAL(p,s).'),
+                'use_default' => $schema->boolean()->nullable()->default(false)->description('Use the TV default when no document value is stored.'),
+            ]))->description('TV conditions. Example: [{"tv":"price","op":">","value":"100","cast":"UNSIGNED"}].'),
+            'tv_order' => $schema->array()->nullable()->items($schema->object([
+                'tv' => $schema->string()->required()->description('TV name.'),
+                'dir' => $schema->string()->enum([...$direction, null])->nullable()->default('asc')->description('TV sort direction.'),
+                'cast' => $schema->string()->enum([...self::ALLOWED_TV_CASTS, null])->nullable()->description('Optional numeric TV sort cast.'),
+                'use_default' => $schema->boolean()->nullable()->default(false)->description('Use the TV default when no document value is stored.'),
+            ]))->description('Ordered TV sort keys. Example: [{"tv":"price","dir":"asc","cast":"UNSIGNED"}].'),
+            'tags_data' => $schema->object([
+                'tv_id' => $schema->integer()->min(1)->required()->description('ID of the tag TV.'),
+                'tags' => $schema->array()->items($schema->string())->required()->description('Nonempty list of tag values.'),
+            ])->nullable()->description('Tag match. Example: {"tv_id":17,"tags":["sale","featured"]}.'),
+            'order_by' => $schema->string()->enum([...self::ALLOWED_SORT_FIELDS, null])->nullable()
+                ->description('Document sort field after TV sorting. Defaults to id ascending.'),
+            'order_dir' => $schema->string()->enum([...$direction, null])->nullable()->description('Direction for order_by; defaults to asc.'),
+            'order_by_date' => $schema->string()->enum([...$direction, null])->nullable()
+                ->description('Sort by publication date or creation date when no publication date is set. Takes precedence over order_by.'),
+        ] + $this->pagingSchema($schema);
     }
 }

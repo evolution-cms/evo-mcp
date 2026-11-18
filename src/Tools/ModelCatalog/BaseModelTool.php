@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Tools\ModelCatalog;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Contracts\ToolResponses\ItemToolResponse;
 use EvolutionCMS\eMCP\Contracts\ToolResponses\ListToolResponse;
 use EvolutionCMS\eMCP\Mappers\ModelRecordMapper;
@@ -337,7 +339,7 @@ abstract class BaseModelTool extends Tool
                 $limit,
                 $offset,
                 count($items),
-                (string)config('cms.settings.eMCP.toolset_version', '1.0'),
+                ToolContract::VERSION,
                 class_basename($modelClass)
             ))->toArray()
         );
@@ -351,7 +353,7 @@ abstract class BaseModelTool extends Tool
         return Response::structured(
             (new ItemToolResponse(
                 $item,
-                (string)config('cms.settings.eMCP.toolset_version', '1.0'),
+                ToolContract::VERSION,
                 class_basename($modelClass)
             ))->toArray()
         );

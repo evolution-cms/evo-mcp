@@ -1,20 +1,25 @@
 {
-    "toolset_version": "1.0",
+    "toolset_version": "2.0",
     "canonical_tools": [
         "evo.content.search",
         "evo.content.get",
-        "evo.content.root_tree",
-        "evo.content.descendants",
+        "evo.content.tree",
         "evo.content.ancestors",
-        "evo.content.children",
         "evo.content.siblings",
         "evo.model.list",
-        "evo.model.get"
+        "evo.model.get",
+        "evo.elements.list",
+        "evo.elements.get",
+        "evo.write.content.update",
+        "evo.write.content.create",
+        "evo.write.content.publish",
+        "evo.write.elements.save",
+        "evo.write.cache.clear"
     ],
-    "spec_version": "1.0-contract",
+    "spec_version": "2.0-contract",
     "runtime_status": "Gate C baseline validated in demo runtime; RC-1 hardening pending",
     "spec_public_contract_hash": "752772e83d65c41fe55bd6ddef3359a8ab04f0e3efe67d4901e79870d1967e7b",
     "model_allowlists_hash": "4aed463f34f34da8231a6499bd58bcc11755d0bdb9bb69f86d9610b51e92b42d",
-    "golden_fixtures_hash": "d015d5fdab8c8f2f5267cdf47046e6580c730edc7c50cc4515eb4dfd2265c147",
-    "updated_at": "2026-09-29T11:20:48+00:00"
+    "golden_fixtures_hash": "f00e4c054f00221cb2087bfaf9aafa32481b6c0d576672fde8556506d1536aea",
+    "updated_at": "2026-11-18T07:39:01+00:00"
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Tools\Elements;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Contracts\ToolResponses\ListToolResponse;
 use EvolutionCMS\eMCP\Support\ElementTypes;
 use EvolutionCMS\eMCP\Tools\Write\BaseWriteTool;
@@ -16,7 +18,8 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('evo.elements.list')]
-#[Description('List templates, TVs, chunks, snippets or plugins (without code) the acting user may edit.')]
+#[Description('List editable templates, TVs, chunks, snippets or plugins ordered by name, with lock information. Requires the edit permission for the type. Use evo.elements.get for one element and its source code.')]
+/** Read a paginated, code-free list of elements of one type. */
 class ElementsListTool extends BaseWriteTool
 {
     public function handle(Request $request): ResponseFactory
@@ -66,7 +69,7 @@ class ElementsListTool extends BaseWriteTool
                 $limit,
                 $offset,
                 count($items),
-                (string)config('cms.settings.eMCP.toolset_version', '1.0')
+                ToolContract::VERSION
             ))->toArray()
         );
     }
@@ -84,11 +87,22 @@ class ElementsListTool extends BaseWriteTool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'type' => $schema->string()->enum(ElementTypes::names())->required(),
-            'search' => $schema->string()->description('Substring of the element name'),
-            'category' => $schema->integer()->min(0),
-            'limit' => $schema->integer()->min(1)->description('Default 50, max 200'),
-            'offset' => $schema->integer()->min(0),
+            'type' => $schema->string()->enum(ElementTypes::names())->required()->description('Element type to list.'),
+            'search' => $schema->string()->max(100)->nullable()->description('Substring of the element name. Omit for all names.'),
+            'category' => $schema->integer()->min(0)->nullable()->description('Category ID. Omit for any category.'),
+            'limit' => $schema->integer()->min(1)->max(200)->nullable()->default(50)->description('Maximum matching elements to return.'),
+            'offset' => $schema->integer()->min(0)->nullable()->default(0)->description('Matching elements to skip after sorting by name.'),
         ];
+    }
+
+    /**
+     * Advertise the structured envelope required by an MCP client.
+     *
+     * @return array<string,mixed>
+     * @since 0.3.0
+     */
+    public function outputSchema(JsonSchema $schema): array
+    {
+        return ToolContract::listing($schema);
     }
 }

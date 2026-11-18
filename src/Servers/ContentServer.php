@@ -4,18 +4,11 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Servers;
 
-use EvolutionCMS\eMCP\Tools\Content\ContentChildrenTool;
-use EvolutionCMS\eMCP\Tools\Content\ContentChildrenRangeTool;
 use EvolutionCMS\eMCP\Tools\Content\ContentGetTool;
-use EvolutionCMS\eMCP\Tools\Content\ContentRootTreeTool;
+use EvolutionCMS\eMCP\Tools\Content\ContentTreeTool;
 use EvolutionCMS\eMCP\Tools\Content\ContentSearchTool;
-use EvolutionCMS\eMCP\Tools\Content\ContentDescendantsTool;
 use EvolutionCMS\eMCP\Tools\Content\ContentAncestorsTool;
-use EvolutionCMS\eMCP\Tools\Content\ContentNeighborsTool;
-use EvolutionCMS\eMCP\Tools\Content\ContentNextSiblingsTool;
-use EvolutionCMS\eMCP\Tools\Content\ContentPrevSiblingsTool;
 use EvolutionCMS\eMCP\Tools\Content\ContentSiblingsTool;
-use EvolutionCMS\eMCP\Tools\Content\ContentSiblingsRangeTool;
 use EvolutionCMS\eMCP\Tools\Elements\ElementsGetTool;
 use EvolutionCMS\eMCP\Tools\Elements\ElementsListTool;
 use EvolutionCMS\eMCP\Tools\ModelCatalog\ModelGetTool;
@@ -34,23 +27,17 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('eMCP Content Server')]
-#[Version('1.0.0')]
+#[Version('2.0.0')]
 #[Instructions('Evolution CMS content and elements. Every call runs as the token owner with their manager permissions; evo.write.* tools change the site and need the mcp:write scope.')]
+/** Expose the current Evo toolset together with extra tools registered on the content server. */
 class ContentServer extends Server
 {
     protected array $tools = [
         ContentSearchTool::class,
         ContentGetTool::class,
-        ContentRootTreeTool::class,
-        ContentDescendantsTool::class,
+        ContentTreeTool::class,
         ContentAncestorsTool::class,
-        ContentChildrenTool::class,
         ContentSiblingsTool::class,
-        ContentNeighborsTool::class,
-        ContentPrevSiblingsTool::class,
-        ContentNextSiblingsTool::class,
-        ContentChildrenRangeTool::class,
-        ContentSiblingsRangeTool::class,
         ModelListTool::class,
         ModelGetTool::class,
         ElementsListTool::class,

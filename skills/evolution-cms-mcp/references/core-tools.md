@@ -1,6 +1,6 @@
 # eMCP core tools
 
-Canonical contract: `TOOLSET.md` in the eMCP package (toolset version 1.0).
+Canonical contract: `TOOLSET.md` in the eMCP package (toolset version 2.0).
 All tools are called with MCP `tools/call`: `{"name": "<tool>", "arguments": {...}}`.
 
 ## Contents
@@ -20,15 +20,9 @@ All return non-deleted documents the acting user may see (document groups apply)
 | Tool | Required | Optional |
 |---|---|---|
 | `evo.content.get` | `id` | `with_tvs` |
-| `evo.content.root_tree` | `limit` | `depth`, `offset`, `with_tvs` |
-| `evo.content.children` | `id`, `limit` | `offset`, `with_tvs` |
-| `evo.content.descendants` | `id`, `limit` | `depth`, `offset`, `with_tvs` |
-| `evo.content.ancestors` | `id`, `limit` | `depth`, `offset`, `with_tvs` |
-| `evo.content.siblings` | `id`, `limit` | `offset`, `with_tvs` |
-| `evo.content.neighbors` | `id`, `limit` | `offset`, `with_tvs` |
-| `evo.content.prev_siblings` / `next_siblings` | `id`, `limit` | `offset`, `with_tvs` |
-| `evo.content.children_range` | `id`, `from`, `limit` | `to`, `offset`, `with_tvs` |
-| `evo.content.siblings_range` | `id`, `from`, `limit` | `to`, `offset`, `with_tvs` |
+| `evo.content.tree` | `id`, `limit` | `depth`, `offset`, `with_tvs`, `menuindex_from`, `menuindex_to` |
+| `evo.content.ancestors` | `id` | `depth`, `with_tvs` |
+| `evo.content.siblings` | `id`, `limit` (except `adjacent`) | `direction`, `offset`, `with_tvs`, `menuindex_from`, `menuindex_to` |
 | `evo.content.search` | `limit` | see below |
 
 List items carry `id, parent, pagetitle, longtitle, description, alias, published, deleted,
@@ -39,7 +33,7 @@ cacheable, richtext, contentType, editedby, createdby, publishedon`.
 `with_tvs`: TV names, `"price"` for the stored value or `"price:d"` to fall back to the TV
 default when a document has no value.
 
-Ranges (`children_range`, `siblings_range`) select by `menuindex` from `from` to `to`.
+Ranges use inclusive `menuindex_from` and `menuindex_to` on `tree` at depth 1 or `siblings` in the `all` direction.
 
 ## Search filters
 
@@ -109,7 +103,7 @@ Code field per type: `content` (template), `default_text` (tv), `snippet` (chunk
 ## Responses
 
 ```json
-{"items": [], "meta": {"limit": 20, "offset": 0, "count": 0, "toolsetVersion": "1.0"}}
+{"items": [], "meta": {"limit": 20, "offset": 0, "count": 0, "toolsetVersion": "2.0"}}
 ```
 
 Get-like tools return `item` (null when not found or not visible).

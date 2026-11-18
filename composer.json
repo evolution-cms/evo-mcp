@@ -13,6 +13,7 @@
   "require": {
     "php": "^8.3",
     "evolution-cms/evolution": "^3.5.2",
+    "evolutioncms-services/document-manager": "^1.1",
     "laravel/mcp": "^0.5.9",
     "seiger/sapi": "^1.0",
     "seiger/stask": "^1.0.10 || ^2.0"
@@ -38,6 +39,7 @@
     "test:unit:model-field-leakage": "php tests/Unit/ModelFieldPolicyLeakageTest.php",
     "test:unit:model-field-schema": "php tests/Unit/ModelFieldPolicySchemaTest.php",
     "test:unit:settings-file": "php tests/Unit/SettingsFileTest.php",
+    "test:unit:tool-definitions": "php tests/Unit/ToolDefinitionsTest.php",
     "test:unit:tool-registry": "php tests/Unit/ToolRegistryTest.php",
     "test:unit:tool-error": "php tests/Unit/ToolErrorTest.php",
     "test:unit:governance-lock": "php tests/Unit/GovernanceLockWriteTest.php",
@@ -47,6 +49,7 @@
     "test:feature:streaming-limits": "php tests/Feature/StreamingAndResultLimitsBehaviorTest.php",
     "test:feature:call-permissions-route": "php tests/Feature/CallPermissionsRouteTest.php",
     "test:integration:transport": "php tests/Integration/TransportEndpointsHttpTest.php",
+    "test:integration:toolset-v2": "php tests/Integration/ToolsetV2SqliteHttpTest.php",
     "test:integration:closure": "php tests/Integration/ClosureTableInvariantsHttpTest.php",
     "test:integration:migrations": "php tests/Integration/MigrationCycleRuntimeTest.php",
     "test:integration:runtime": "php tests/Integration/RuntimeIntegrationHttpTest.php",
@@ -86,6 +89,7 @@
       "@test:unit:model-field-schema",
       "@test:unit:settings-file",
       "@test:unit:tool-registry",
+      "@test:unit:tool-definitions",
       "@test:unit:tool-error",
       "@test:unit:governance-lock",
       "@test:phase25",
@@ -110,6 +114,7 @@
       "@test:integration:migrations",
       "@test:integration:transport",
       "@test:integration:closure",
+      "@test:integration:toolset-v2",
       "@test:integration:runtime"
     ]
   },

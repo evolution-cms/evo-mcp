@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Tools\Content;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Contracts\ToolResponses\ItemToolResponse;
 use EvolutionCMS\eMCP\Contracts\ToolResponses\ListToolResponse;
 use EvolutionCMS\eMCP\Mappers\SiteContentMapper;
 use EvolutionCMS\Models\SiteContent;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\JsonSchema\Types\ArrayType;
+use Illuminate\JsonSchema\Types\Type;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\ResponseFactory;
 use Laravel\Mcp\Server\Tool;
 
+/** Shared validation, visibility and structured results for document tools. */
 abstract class BaseContentTool extends Tool
 {
     private ?SiteContentMapper $siteContentMapper = null;
@@ -169,6 +175,90 @@ abstract class BaseContentTool extends Tool
         if (!$loggedIn || !evo()->hasPermission('view_unpublished', 'mgr')) {
             $query->where($table . '.published', 1);
         }
+    }
+
+    /**
+     * Fetch a visible, live document to anchor tree or sibling traversal.
+     *
+     * @since 0.3.0
+     */
+    protected function findAnchor(int $id): ?SiteContent
+    {
+        $query = SiteContent::query()->select('site_content.id', 'site_content.parent', 'site_content.menuindex')
+            ->where('site_content.id', $id)
+            ->where('site_content.deleted', 0);
+        $this->applyManagerAccess($query);
+
+        return $query->first();
+    }
+
+    /**
+     * Advertise the TV projection accepted by every content reader.
+     *
+     * @since 0.3.0
+     */
+    protected function tvSchema(JsonSchema $schema): ArrayType
+    {
+        return $schema->array()->items($schema->string())->nullable()
+            ->description('TV names to return under tvs. Append :d to a name to fall back to its default value.');
+    }
+
+    /**
+     * Advertise the paging arguments applied after scope, filters and sorting.
+     *
+     * @return array<string, Type>
+     * @since 0.3.0
+     */
+    protected function pagingSchema(JsonSchema $schema, bool $required = true): array
+    {
+        $limit = $schema->integer()->min(1)->description('Maximum items to return, up to the configured server limit.');
+        if ($required) {
+            $limit->required();
+        }
+
+        return [
+            'limit' => $limit,
+            'offset' => $schema->integer()->min(0)->nullable()->default(0)
+                ->description('Number of matching records to skip after sorting.'),
+        ];
+    }
+
+    /**
+     * Check inclusive menuindex bounds before building a query.
+     *
+     * @since 0.3.0
+     */
+    protected function validateMenuindexRange(?int $from, ?int $to): void
+    {
+        if ($from !== null && $to !== null && $from > $to) {
+            throw ValidationException::withMessages(['menuindex_to' => 'Must be greater than or equal to menuindex_from.']);
+        }
+    }
+
+    /**
+     * Apply an optional inclusive range on the named resource table.
+     *
+     * @since 0.3.0
+     */
+    protected function applyMenuindexRange(Builder $query, string $table, ?int $from, ?int $to): void
+    {
+        if ($from !== null) {
+            $query->where($table . '.menuindex', '>=', $from);
+        }
+        if ($to !== null) {
+            $query->where($table . '.menuindex', '<=', $to);
+        }
+    }
+
+    /**
+     * Advertise the paginated response shared by document listings.
+     *
+     * @return array<string,mixed>
+     * @since 0.3.0
+     */
+    public function outputSchema(JsonSchema $schema): array
+    {
+        return ToolContract::listing($schema);
     }
 
     protected function resolveMaxLimit(): int
@@ -432,9 +522,11 @@ abstract class BaseContentTool extends Tool
     }
 
     /**
+     * Return a document page or an ancestor path with its truncation indicator.
+     *
      * @param  array<int, array<string, mixed>>  $items
      */
-    protected function respondList(array $items, int $limit, int $offset): ResponseFactory
+    protected function respondList(array $items, int $limit, int $offset, ?bool $truncated = null): ResponseFactory
     {
         return Response::structured(
             (new ListToolResponse(
@@ -442,7 +534,8 @@ abstract class BaseContentTool extends Tool
                 $limit,
                 $offset,
                 count($items),
-                (string)config('cms.settings.eMCP.toolset_version', '1.0')
+                ToolContract::VERSION,
+                truncated: $truncated,
             ))->toArray()
         );
     }
@@ -455,7 +548,7 @@ abstract class BaseContentTool extends Tool
         return Response::structured(
             (new ItemToolResponse(
                 $item,
-                (string)config('cms.settings.eMCP.toolset_version', '1.0')
+                ToolContract::VERSION
             ))->toArray()
         );
     }

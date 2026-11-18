@@ -12,7 +12,7 @@ metadata:
     - cms
     - content-management
   package: evolution-cms/emcp
-  toolset-version: "1.0"
+  toolset-version: "2.0"
 ---
 
 # Evolution CMS via eMCP
@@ -73,8 +73,8 @@ administration (install, deploy, database backups).
    Never guess ids, TV names or element names.
 2. **Always paginate.** Content and model list tools require `limit`
    (max 100 by default) and accept `offset`. Page until `meta.count < limit`.
-3. **Prefer the narrowest tool.** `children` over `descendants`, `search` with
-   `parent` + `depth` over `root_tree`, `evo.elements.list` (no code) before
+3. **Prefer the narrowest tool.** `tree` with `depth: 1` for children, `search` with
+   `parent` and `depth` for filtered results, `evo.elements.list` (no code) before
    `evo.elements.get` (with code).
 4. **Confirm before changes the user cannot undo.** `evo.write.content.update`
    and `evo.write.elements.save` overwrite without a revision. Show the diff of
@@ -90,10 +90,10 @@ administration (install, deploy, database backups).
 
 | Task | Tools |
 |---|---|
-| Site structure | `evo.content.root_tree`, `children`, `descendants`, `ancestors`, `siblings` |
+| Site structure | `evo.content.tree`, `evo.content.ancestors`, `evo.content.siblings` |
 | Find documents | `evo.content.search` (filters, TV filters, TV order, tags) |
 | Read one document with body | `evo.content.get` (`with_tvs`) |
-| Ordering by menu position | `evo.content.neighbors`, `prev_siblings`, `next_siblings`, `children_range`, `siblings_range` |
+| Ordering by menu position | `evo.content.siblings` directions and `evo.content.tree` ranges |
 | Write documents | `evo.write.content.create`, `evo.write.content.update`, `evo.write.content.publish` |
 | Templates, TVs, chunks, snippets, plugins | `evo.elements.list`, `evo.elements.get`, `evo.write.elements.save` |
 | Users, roles, permissions, categories | `evo.model.list`, `evo.model.get` |

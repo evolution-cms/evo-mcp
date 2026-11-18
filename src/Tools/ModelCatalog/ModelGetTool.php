@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Tools\ModelCatalog;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Contracts\ToolArguments\ModelGetArgs;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +15,8 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('evo.model.get')]
-#[Description('Get one allowlisted Evolution CMS model record by id with allowlist projection.')]
+#[Description('Read one record by ID from an allowed Evolution CMS model. Requires permission to read that model and returns only its public fields. Use evo.model.list to filter or browse several records.')]
+/** Read one projected record from a registered model. */
 class ModelGetTool extends BaseModelTool
 {
     /**
@@ -85,8 +88,21 @@ class ModelGetTool extends BaseModelTool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'model' => $schema->string()->required(),
-            'id' => $schema->integer()->min(1)->required(),
+            'model' => $schema->string()->required()->description('Allowed model alias or full class name, case-insensitive. Unsupported models produce an error.'),
+            'id' => $schema->integer()->min(1)->required()->description('Record ID. A missing record returns item null.'),
         ];
+    }
+
+    /**
+     * Advertise the structured envelope required by an MCP client.
+     *
+     * @return array<string,mixed>
+     * @since 0.3.0
+     */
+    public function outputSchema(JsonSchema $schema): array
+    {
+        return ToolContract::item($schema, extraMeta: [
+            'model' => $schema->string()->required()->description('Canonical short name of the queried model.'),
+        ]);
     }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — Toolset 2.0
+
+- Canonical tools: consolidated navigation into tree and siblings, with 14 Evo tools in discovery.
+- Published input and output schemas now describe supported filters, TV projection and result envelopes.
+- Document updates are atomic with TVs and explicitly enforce publication permissions.
+
 ## [Unreleased]
 ### Added
 - Personal access tokens (`auth.mode = pat`, now the default): `emcp_tokens` table, `Authorization: Bearer emcp_...` endpoint at `/{api_prefix}/{server}` without sApi, self-service **Tools → MCP tokens** manager page, `emcp:token:create|list|revoke` commands.

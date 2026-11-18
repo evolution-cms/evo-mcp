@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Tools\Content;
 
+use EvolutionCMS\eMCP\Support\ToolContract;
+
 use EvolutionCMS\eMCP\Contracts\ToolArguments\ContentGetArgs;
 use EvolutionCMS\Models\SiteContent;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -13,7 +15,8 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('evo.content.get')]
-#[Description('Get one content document by id, including its body (content, introtext, menutitle) and optional TVs projection.')]
+#[Description('Read one visible document by ID, including its body, introtext, menutitle and requested TVs. Returns item null when the document is missing or inaccessible. Use evo.content.search when the ID is unknown.')]
+/** Return a single document with detail fields and optional TV values. */
 class ContentGetTool extends BaseContentTool
 {
     /**
@@ -95,7 +98,19 @@ class ContentGetTool extends BaseContentTool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'id' => $schema->integer()->min(1)->required(),
+            'id' => $schema->integer()->min(1)->required()->description('ID of the document to read.'),
+            'with_tvs' => $this->tvSchema($schema),
         ];
+    }
+
+    /**
+     * Advertise the structured envelope required by an MCP client.
+     *
+     * @return array<string,mixed>
+     * @since 0.3.0
+     */
+    public function outputSchema(JsonSchema $schema): array
+    {
+        return ToolContract::item($schema);
     }
 }

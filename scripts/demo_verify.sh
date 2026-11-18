@@ -200,11 +200,11 @@ session_id=""
 initialize_payload='{"jsonrpc":"2.0","id":"init-doc","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"emcp-demo-verify","version":"1.0.0"}}}'
 tools_list_payload='{"jsonrpc":"2.0","id":"tools-doc","method":"tools/list","params":{}}'
 content_search_payload='{"jsonrpc":"2.0","id":"search-doc","method":"tools/call","params":{"name":"evo.content.search","arguments":{"limit":3,"offset":0}}}'
-content_root_tree_payload='{"jsonrpc":"2.0","id":"root-doc","method":"tools/call","params":{"name":"evo.content.root_tree","arguments":{"limit":3,"offset":0,"depth":2}}}'
+content_root_tree_payload='{"jsonrpc":"2.0","id":"root-doc","method":"tools/call","params":{"name":"evo.content.tree","arguments":{"id":0,"limit":3,"offset":0,"depth":3}}}'
 content_get_payload='{"jsonrpc":"2.0","id":"get-doc","method":"tools/call","params":{"name":"evo.content.get","arguments":{"id":1}}}'
-content_neighbors_payload='{"jsonrpc":"2.0","id":"neighbors-doc","method":"tools/call","params":{"name":"evo.content.neighbors","arguments":{"id":1,"limit":3,"offset":0}}}'
-content_children_range_payload='{"jsonrpc":"2.0","id":"children-range-doc","method":"tools/call","params":{"name":"evo.content.children_range","arguments":{"id":1,"from":0,"to":5,"limit":3,"offset":0}}}'
-content_children_range_invalid_payload='{"jsonrpc":"2.0","id":"children-range-invalid-doc","method":"tools/call","params":{"name":"evo.content.children_range","arguments":{"id":1,"from":5,"to":2,"limit":1,"offset":0}}}'
+content_neighbors_payload='{"jsonrpc":"2.0","id":"neighbors-doc","method":"tools/call","params":{"name":"evo.content.siblings","arguments":{"id":1,"direction":"adjacent"}}}'
+content_children_range_payload='{"jsonrpc":"2.0","id":"children-range-doc","method":"tools/call","params":{"name":"evo.content.tree","arguments":{"id":1,"menuindex_from":0,"menuindex_to":5,"limit":3,"offset":0}}}'
+content_children_range_invalid_payload='{"jsonrpc":"2.0","id":"children-range-invalid-doc","method":"tools/call","params":{"name":"evo.content.tree","arguments":{"id":1,"menuindex_from":5,"menuindex_to":2,"limit":1,"offset":0}}}'
 
 init_headers_file="${TMP_DIR}/init.headers"
 init_raw=$(curl -sS -D "${init_headers_file}" \
@@ -676,7 +676,7 @@ Response:
 ${search_response}
 \`\`\`
 
-### 4) site content via evo.content.root_tree
+### 4) site content via evo.content.tree
 
 Request:
 \`\`\`json
@@ -708,7 +708,7 @@ Contract note:
 - \`result.structuredContent\` is the canonical contract payload.
 - \`result.content[].text\` is a compatibility mirror for MCP clients that rely on text blocks.
 
-### 6) optional tool probe: evo.content.neighbors
+### 6) optional tool probe: evo.content.siblings
 
 Request:
 \`\`\`json
@@ -722,7 +722,7 @@ Response:
 ${neighbors_response}
 \`\`\`
 
-### 7) optional tool probe: evo.content.children_range
+### 7) optional tool probe: evo.content.tree
 
 Request:
 \`\`\`json
@@ -736,7 +736,7 @@ Response:
 ${children_range_response}
 \`\`\`
 
-### 8) optional tool negative probe: evo.content.children_range (from > to)
+### 8) optional tool negative probe: evo.content.tree (from > to)
 
 Request:
 \`\`\`json

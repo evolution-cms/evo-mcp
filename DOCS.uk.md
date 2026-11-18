@@ -9,7 +9,7 @@ Contract boundary:
 - `OPERATIONS.md` є day-2 runbook для операторів (profiles, health checks, triage).
 
 Status marker:
-- Цільовий контракт: `SPEC 1.0-contract`.
+- Цільовий контракт: `SPEC 2.0-contract`.
 - Runtime baseline в поточному репозиторії: `Gate C baseline implemented (full validation pending)`.
 
 ## 1) Огляд
@@ -376,18 +376,11 @@ tool задає сам, зберігаються). Це підказки для 
 Головний доменний профіль: робота з деревом документів через `SiteContent`:
 - `evo.content.search`
 - `evo.content.get`
-- `evo.content.root_tree`
-- `evo.content.descendants`
+- `evo.content.tree`
 - `evo.content.ancestors`
-- `evo.content.children`
 - `evo.content.siblings`
 
-Опційні (вже реалізовані) tree tools:
-- `evo.content.neighbors`
-- `evo.content.prev_siblings`
-- `evo.content.next_siblings`
-- `evo.content.children_range`
-- `evo.content.siblings_range`
+[Toolset 2.0 migration](TOOLSET.md#migration-from-toolset-10).
 
 Підтримка TV входить у контракт:
 - `with_tvs` мапиться на `withTVs`

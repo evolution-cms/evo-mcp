@@ -16,10 +16,10 @@ Prerequisites are open for any write step. Recipes for `aimage.*`, `amount.*` an
 
 ## Map an unknown site
 
-1. `evo.content.root_tree` `{"depth": 2, "limit": 100}`.
+1. `evo.content.tree` `{"id": 0, "depth": 3, "limit": 100}`.
 2. `evo.elements.list` `{"type": "template"}` and `{"type": "tv"}` to learn which templates and
    TVs exist; note TV names for later `with_tvs`.
-3. For a section, `evo.content.children` `{"id": <section>, "limit": 100}`.
+3. For a section, `evo.content.tree` `{"id": <section>, "depth": 1, "limit": 100}`.
 4. Summarise the tree (ids, titles, templates) before proposing any change.
 
 ## SEO audit of a section
@@ -43,10 +43,10 @@ findings and recorded fixes, including missing-page drafts, background checks an
 
 ## Restructure the menu
 
-1. `evo.content.children` for the parent to get current `menuindex` values.
+1. `evo.content.tree` for the parent to get current `menuindex` values.
 2. Propose the new order; on approval update `fields.menuindex` (and `fields.parent` to move a
    document; `parent` 0 is the root).
-3. Verify with `evo.content.children` again.
+3. Verify with `evo.content.tree` again.
 
 ## Fix a template or chunk
 
