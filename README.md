@@ -1,7 +1,10 @@
 <p align="center">
-<a href="https://packagist.org/packages/evolution-cms/emcp"><img src="https://img.shields.io/packagist/dt/evolution-cms/emcp" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/evolution-cms/emcp"><img src="https://img.shields.io/packagist/v/evolution-cms/emcp" alt="Latest Stable Version"></a>
-<img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+[![Latest Stable Version](https://img.shields.io/packagist/v/evolution-cms/emcp?label=version)](https://packagist.org/packages/evolution-cms/emcp)   
+[![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsLMS%2Fmain%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
+[![Total Downloads](https://img.shields.io/packagist/dt/evolution-cms/emcp)](https://packagist.org/packages/evolution-cms/emcp)
+[![License](https://img.shields.io/packagist/l/evolution-cms/emcp)](https://packagist.org/packages/evolution-cms/emcp)
+![Made in Ukraine](https://img.shields.io/badge/made_in-Ukraine-ffd700.svg?labelColor=0057b7)
+[![eMCP for Evolution CMS MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/evolution-cms/evo-mcp/badges/card.svg)](https://glama.ai/mcp/servers/evolution-cms/evo-mcp)
 </p>
 
 # eMCP for Evolution CMS
