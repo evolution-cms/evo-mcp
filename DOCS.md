@@ -42,7 +42,7 @@ eMCP keeps upstream `laravel/mcp` behavior as the baseline:
 - `POST` processes JSON-RPC messages.
 - `MCP-Session-Id` is passed through request/response.
 - `202` is preserved for no-reply notification flows.
-- SSE transport response uses `text/event-stream` when streaming is enabled.
+- Tool execution can stream through `text/event-stream` when streaming is enabled.
 - Upstream command surface (`make:mcp-*`, `mcp:start`, `mcp:inspector`) remains available.
 
 eMCP-specific logic is additive (ACL/scopes/policies), not a protocol rewrite.
@@ -499,6 +499,14 @@ Environment notes (Gate B+):
 - Nginx/Proxy: disable buffering for MCP streaming routes.
 - PHP-FPM/FastCGI: configure output buffering/flush for incremental event delivery.
 - Proxy/FPM timeouts must be tuned for long-running streams.
+
+## 10.4 Tool catalog updates
+
+Authenticated Streamable HTTP sessions advertise `tools.listChanged` by default. After a successful first page of `tools/list`, eMCP remembers the revision of the full catalog visible to that session, including extra tools. Composer and published config timestamps and the visible tool identities are checked on subsequent eligible calls. When those signals change, eMCP hashes the catalog to verify that the tools or their definitions changed.
+
+A subsequent `tools/call` accepting `text/event-stream` can carry `notifications/tools/list_changed` before its regular JSON-RPC reply. The client can refresh by requesting `tools/list` again from the first page. This protocol notification works with `stream.enabled=false`. JSON-only clients and internal executions continue to receive JSON.
+
+Set `tool_catalog.notify_changes=false` in the published eMCP settings to disable this behavior. Session state expires after 24 hours and lives under Evo storage in `emcp/tool-catalog` so a routine application cache clear preserves it. Deployments serving a session across multiple web nodes need shared storage for this directory.
 
 ## 11) Async via sTask
 

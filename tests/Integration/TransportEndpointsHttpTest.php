@@ -105,6 +105,101 @@ function decodeJsonObject(string $body, string $context): array
     return $decoded;
 }
 
+function checkToolCatalog(string $url, string $token, string $session, string $fixture, string $metadata): void
+{
+    $original = file_get_contents($fixture);
+    $timestamp = filemtime($metadata);
+    if ($original === false || $timestamp === false) {
+        fail('Catalog test requires a disposable fixture and Composer metadata');
+    }
+
+    $send = static function (string $method, int $id, string $accept, array $params = []) use ($url, $token, $session): array {
+        return httpRequest('POST', $url, json_encode([
+            'jsonrpc' => '2.0',
+            'id' => $id,
+            'method' => $method,
+            'params' => (object)$params,
+        ], JSON_THROW_ON_ERROR), [
+            'Content-Type: application/json',
+            'Accept: ' . $accept,
+            'Authorization: Bearer ' . $token,
+            'MCP-Session-Id: ' . $session,
+            'MCP-Protocol-Version: 2025-11-25',
+        ]);
+    };
+
+    $assertCatalog = static function (array $response, ?string $description): void {
+        $payload = json_decode($response['body'], true, flags: JSON_THROW_ON_ERROR);
+        if ($response['status'] !== 200 || !is_array($payload['result']['tools'] ?? null)) {
+            throw new RuntimeException('Expected a successful tools/list reply');
+        }
+        $descriptions = array_column($payload['result']['tools'] ?? [], 'description', 'name');
+        if (($descriptions['fixture.catalog_revision'] ?? null) !== $description) {
+            throw new RuntimeException('Catalog fixture description is missing or stale');
+        }
+    };
+    $readEvents = static function (array $response, int $id): array {
+        $events = explode("\n\n", trim($response['body']));
+        if ($response['status'] !== 200 || !str_starts_with($response['headers']['content-type'] ?? '', 'text/event-stream')
+            || count($events) !== 2 || !str_starts_with($events[0], 'data: ') || !str_starts_with($events[1], 'data: ')) {
+            throw new RuntimeException('Expected two events on a short SSE response');
+        }
+        $notice = json_decode(substr($events[0], 6), true, flags: JSON_THROW_ON_ERROR);
+        $reply = json_decode(substr($events[1], 6), true, flags: JSON_THROW_ON_ERROR);
+        if (($notice['method'] ?? null) !== 'notifications/tools/list_changed' || array_key_exists('id', $notice)
+            || ($reply['id'] ?? null) !== $id) {
+            throw new RuntimeException('SSE did not preserve the notification and request ID');
+        }
+
+        return $reply;
+    };
+    $assertJson = static function (array $response, int $id): void {
+        if ($response['status'] !== 200 || !str_starts_with($response['headers']['content-type'] ?? '', 'application/json')) {
+            throw new RuntimeException('Expected JSON response to tool call ' . $id);
+        }
+        $payload = json_decode($response['body'], true, flags: JSON_THROW_ON_ERROR);
+        if (($payload['id'] ?? null) !== $id) {
+            throw new RuntimeException('JSON response lost the request ID');
+        }
+    };
+
+    $accept = 'application/json, text/event-stream';
+    $tool = ['name' => 'fixture.catalog_revision'];
+    try {
+        $assertCatalog($send('tools/list', 1, $accept, ['per_page' => 50]), trim($original));
+
+        if (!touch($metadata, $timestamp + 1)) {
+            throw new RuntimeException('Could not simulate a Composer metadata update');
+        }
+        $assertJson($send('tools/call', 2, $accept, $tool), 2);
+
+        if (file_put_contents($fixture, 'Updated package tool') === false || !touch($metadata, $timestamp + 2)) {
+            throw new RuntimeException('Could not simulate a package tool update');
+        }
+        $assertJson($send('tools/call', 3, 'application/json, text/event-stream;q=0', $tool), 3);
+
+        $reply = $readEvents($send('tools/call', 4, $accept, $tool), 4);
+        if (($reply['result']['content'][0]['text'] ?? null) !== 'Updated package tool') {
+            throw new RuntimeException('SSE did not preserve the tool result');
+        }
+
+        $assertJson($send('tools/call', 5, $accept, $tool), 5);
+        $assertCatalog($send('tools/list', 6, $accept, ['per_page' => 50]), 'Updated package tool');
+        $assertJson($send('tools/call', 7, $accept, $tool), 7);
+
+        if (file_put_contents($fixture, 'Hidden package tool') === false) {
+            throw new RuntimeException('Could not change package tool visibility');
+        }
+        $readEvents($send('tools/call', 8, $accept, $tool), 8);
+        $assertCatalog($send('tools/list', 9, $accept, ['per_page' => 50]), null);
+    } finally {
+        file_put_contents($fixture, $original);
+        touch($metadata, $timestamp);
+    }
+
+    info('Tool catalog checks passed.');
+}
+
 $enabled = getenv('EMCP_INTEGRATION_ENABLED');
 if ($enabled !== '1') {
     info('Skipped (set EMCP_INTEGRATION_ENABLED=1).');
@@ -163,6 +258,15 @@ if ($apiPath !== '' && $apiToken !== '') {
     $sessionId = trim((string)($apiPost['headers']['mcp-session-id'] ?? ''));
     if ($sessionId === '') {
         fail('API initialize response missing MCP-Session-Id header');
+    }
+
+    $catalogFixture = (string)getenv('EMCP_CATALOG_FIXTURE');
+    $catalogMetadata = (string)getenv('EMCP_CATALOG_COMPOSER_METADATA');
+    if ($catalogFixture !== '' && $catalogMetadata !== '') {
+        if (($apiJson['result']['capabilities']['tools']['listChanged'] ?? null) !== true) {
+            fail('API initialize must advertise tools.listChanged for catalog checks');
+        }
+        checkToolCatalog($apiUrl, $apiToken, $sessionId, $catalogFixture, $catalogMetadata);
     }
 
     info('API endpoint checks passed.');

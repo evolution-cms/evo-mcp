@@ -15,7 +15,7 @@
 
 # eMCP for Evolution CMS
 
-`eMCP` is the Evolution CMS integration layer for `laravel/mcp`.
+`eMCP` is the [Evolution CMS](https://github.com/evolution-cms/evolution) integration layer for `laravel/mcp`.
 
 It adapts Laravel MCP to Evo runtime with:
 - Evo-native config publishing
@@ -104,15 +104,17 @@ permissions and document groups — exactly as if they were logged into the mana
 3. Connect the agent:
 
 ```bash
-claude mcp add --transport http evo https://example.com/mcp/content   --header "Authorization: Bearer emcp_..."
+claude mcp add --transport http --scope user example-com https://example.com/mcp/content --header "Authorization: Bearer <token>"
 ```
 
 ```toml
 # Codex ~/.codex/config.toml
-[mcp_servers.evo]
+[mcp_servers.example-com]
 url = "https://example.com/mcp/content"
-bearer_token_env_var = "EVO_MCP_TOKEN"
+bearer_token_env_var = "EXAMPLE_COM_MCP_TOKEN"
 ```
+
+Use a separate connection name and token environment variable for each site. **Tools → MCP tokens** generates both from the endpoint hostname.
 
 Scopes narrow a token, never widen the user: `mcp:read` (list/read), `mcp:call` (read-only
 tools), `mcp:write` (`evo.write.*` tools, also gated by `security.enable_write_tools`),

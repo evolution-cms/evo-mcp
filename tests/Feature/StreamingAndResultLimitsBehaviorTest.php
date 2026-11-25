@@ -328,6 +328,7 @@ namespace {
     require_once __DIR__ . '/../../src/Support/JsonRpcPayload.php';
     require_once __DIR__ . '/../../src/Support/ManagerUrl.php';
     require_once __DIR__ . '/../../src/Support/SiteDomains.php';
+    require_once __DIR__ . '/../../src/Services/ToolListNotifications.php';
     require_once __DIR__ . '/../../src/Http/Controllers/McpManagerController.php';
 
     define('EVO_SITE_URL', 'https://example.test/cms/');

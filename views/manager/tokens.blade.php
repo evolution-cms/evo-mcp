@@ -135,12 +135,12 @@
         <h2 style="margin-top:22px">Connect an agent</h2>
         <p class="muted">Endpoint: <code>{{ $endpointUrl }}</code></p>
         <p class="muted">Claude Code:</p>
-<pre>claude mcp add --transport http evo {{ $endpointUrl }} \
+<pre>claude mcp add --transport http --scope user {{ $connectionName }} {{ $endpointUrl }} \
   --header "Authorization: Bearer &lt;token&gt;"</pre>
         <p class="muted">Codex (<code>~/.codex/config.toml</code>):</p>
-<pre>[mcp_servers.evo]
+<pre>[mcp_servers.{{ $connectionName }}]
 url = "{{ $endpointUrl }}"
-bearer_token_env_var = "EVO_MCP_TOKEN"</pre>
+bearer_token_env_var = "{{ $tokenEnvVar }}"</pre>
     </section>
 </div>
 </body>
