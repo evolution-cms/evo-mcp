@@ -696,6 +696,8 @@ Default behavior remains deny-by-default.
 
 When `tool_catalog.notify_changes` is enabled, an authenticated Streamable HTTP session MAY receive a finite SSE response containing `notifications/tools/list_changed` followed by the JSON-RPC reply to `tools/call`. The request MUST accept `text/event-stream`. The reply MUST satisfy the ordinary result-size limit before SSE framing, even when `stream.enabled=false`. Internal executions continue to use JSON.
 
+A tool definition that changes independently of Composer metadata, published config and tool identity MUST be signalled through `HasDefinitionRevision`; unsignalled changes MAY go without a notification. Expired session state MUST be removed without requiring a request for the original session, and each cleanup MUST be bounded.
+
 ## 10.7 Orchestration extension profile (Post-MVP SHOULD)
 Для розширених сценаріїв execution beyond plain tool-calls, eMCP SHOULD підтримувати нейтральний envelope:
 - `Intent` (what should be executed).

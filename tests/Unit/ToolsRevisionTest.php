@@ -13,9 +13,11 @@ namespace EvolutionCMS\eMCP\Services {
 }
 
 namespace {
+    use EvolutionCMS\eMCP\Contracts\HasDefinitionRevision;
     use EvolutionCMS\eMCP\Services\ToolRegistry;
     use EvolutionCMS\eMCP\Services\ToolsRevision;
 
+    require_once __DIR__ . '/../../src/Contracts/HasDefinitionRevision.php';
     require_once __DIR__ . '/../../src/Services/ToolsRevision.php';
 
     function verify(bool $condition, string $message): void
@@ -60,8 +62,26 @@ namespace {
     $catalog = ToolsRevision::catalog([$extra], $registry);
     verify($candidates !== ToolsRevision::candidates($before, []), 'Removing a visible package tool must change the candidate revision');
     $extra->type = 'integer';
-    verify($candidates === ToolsRevision::candidates($before, [$extra]), 'Candidate revision should only include tool identities and file timestamps');
+    verify($candidates === ToolsRevision::candidates($before, [$extra]), 'A tool without a definition revision must not change the candidate revision');
     verify($catalog !== ToolsRevision::catalog([$extra], $registry), 'Changing an extra tool schema must change the catalog hash');
+
+    $signalling = new class implements HasDefinitionRevision {
+        public string $revision = '1';
+
+        public function name(): string
+        {
+            return 'fixture.signalling';
+        }
+
+        public function definitionRevision(): string
+        {
+            return $this->revision;
+        }
+    };
+    $candidates = ToolsRevision::candidates($before, [$signalling]);
+    verify($candidates === ToolsRevision::candidates($before, [$signalling]), 'An unchanged definition revision must keep the candidate revision');
+    $signalling->revision = '2';
+    verify($candidates !== ToolsRevision::candidates($before, [$signalling]), 'A new definition revision must change the candidate revision');
 
     echo "Tool catalog revision checks passed.\n";
 }

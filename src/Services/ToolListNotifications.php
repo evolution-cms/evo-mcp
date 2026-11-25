@@ -14,6 +14,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 final class ToolListNotifications
 {
     private const TTL_SECONDS = 86400;
+    // Past the TTL, so clock differences with shared storage cannot remove a live record.
+    private const CLEANUP_AGE_SECONDS = self::TTL_SECONDS + 3600;
+    private const CLEANUP_LIMIT = 500;
     private const NOTIFICATION = '{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}';
 
     public function __construct(
@@ -35,12 +38,18 @@ final class ToolListNotifications
         $key = $this->sessionKey($request, $server, $response->headers->get('MCP-Session-Id'));
         $version = $result['protocolVersion'] ?? '';
 
-        return $key !== null
+        $registered = $key !== null
             && $response->isSuccessful()
             && is_string($version)
             && $version >= '2025-03-26'
             && isset($result['capabilities']['tools'])
             && $this->store->put($key, [], self::TTL_SECONDS);
+
+        if ($registered) {
+            ToolCatalogCleanup::run($this->store->getDirectory(), self::CLEANUP_AGE_SECONDS, self::CLEANUP_LIMIT);
+        }
+
+        return $registered;
     }
 
     public function apply(

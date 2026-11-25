@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EvolutionCMS\eMCP\Services;
 
+use EvolutionCMS\eMCP\Contracts\HasDefinitionRevision;
 use EvolutionCMS\eMCP\Support\CustomConfigPath;
 use EvolutionCMS\eMCP\Support\SettingsFile;
 use Laravel\Mcp\Server\Tool;
@@ -39,7 +40,11 @@ final class ToolsRevision
     {
         $names = [];
         foreach ($tools as $tool) {
-            $names[] = [$tool::class, $tool->name()];
+            $names[] = [
+                $tool::class,
+                $tool->name(),
+                $tool instanceof HasDefinitionRevision ? $tool->definitionRevision() : null,
+            ];
         }
 
         return hash('sha256', json_encode([$files, $names], JSON_THROW_ON_ERROR));

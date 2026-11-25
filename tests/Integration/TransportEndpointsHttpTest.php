@@ -107,6 +107,14 @@ function decodeJsonObject(string $body, string $context): array
 
 function checkToolCatalog(string $url, string $token, string $session, string $fixture, string $metadata): void
 {
+    // Schema and revision of the fixture tool, read from the same storage directory.
+    $schema = dirname($fixture) . '/emcp-test-catalog-schema.json';
+    $setSchema = static function (string $type, string $revision) use ($schema): void {
+        if (file_put_contents($schema, json_encode(['type' => $type, 'revision' => $revision], JSON_THROW_ON_ERROR)) === false) {
+            throw new RuntimeException('Could not change the package tool schema');
+        }
+    };
+
     $original = file_get_contents($fixture);
     $timestamp = filemtime($metadata);
     if ($original === false || $timestamp === false) {
@@ -163,9 +171,18 @@ function checkToolCatalog(string $url, string $token, string $session, string $f
         }
     };
 
+    $assertSchema = static function (array $response, string $type): void {
+        $payload = json_decode($response['body'], true, flags: JSON_THROW_ON_ERROR);
+        $schemas = array_column($payload['result']['tools'] ?? [], 'inputSchema', 'name');
+        if (($schemas['fixture.catalog_revision']['properties']['value']['type'] ?? null) !== $type) {
+            throw new RuntimeException('Catalog fixture schema is missing or stale');
+        }
+    };
+
     $accept = 'application/json, text/event-stream';
     $tool = ['name' => 'fixture.catalog_revision'];
     try {
+        $setSchema('string', '1');
         $assertCatalog($send('tools/list', 1, $accept, ['per_page' => 50]), trim($original));
 
         if (!touch($metadata, $timestamp + 1)) {
@@ -187,6 +204,16 @@ function checkToolCatalog(string $url, string $token, string $session, string $f
         $assertCatalog($send('tools/list', 6, $accept, ['per_page' => 50]), 'Updated package tool');
         $assertJson($send('tools/call', 7, $accept, $tool), 7);
 
+        // Only the schema changes here: no watched file or tool identity does.
+        $setSchema('integer', '1');
+        $assertJson($send('tools/call', 10, $accept, $tool), 10);
+        $setSchema('integer', '2');
+        $readEvents($send('tools/call', 11, $accept, $tool), 11);
+        $assertJson($send('tools/call', 12, $accept, $tool), 12);
+        $assertSchema($send('tools/list', 13, $accept, ['per_page' => 50]), 'integer');
+        $setSchema('integer', '3');
+        $assertJson($send('tools/call', 14, $accept, $tool), 14);
+
         if (file_put_contents($fixture, 'Hidden package tool') === false) {
             throw new RuntimeException('Could not change package tool visibility');
         }
@@ -195,9 +222,41 @@ function checkToolCatalog(string $url, string $token, string $session, string $f
     } finally {
         file_put_contents($fixture, $original);
         touch($metadata, $timestamp);
+        @unlink($schema);
     }
 
     info('Tool catalog checks passed.');
+}
+
+function checkCatalogCleanup(string $url, string $token, string $initialize, string $directory): void
+{
+    $files = static fn (): array => glob($directory . '/*/*/*') ?: [];
+    $start = static function () use ($url, $token, $initialize, $files): array {
+        $known = $files();
+        $response = httpRequest('POST', $url, $initialize, ['Content-Type: application/json', 'Authorization: Bearer ' . $token]);
+        $created = array_values(array_diff($files(), $known));
+        if ($response['status'] !== 200 || count($created) !== 1) {
+            fail('Initialize must store one catalog record');
+        }
+
+        return $created;
+    };
+
+    [$abandoned] = $start();
+    [$live] = $start();
+    if (!touch($abandoned, time() - 100000) || !touch($live, time() - 80000)) {
+        fail('Catalog cleanup test requires write access to the state directory');
+    }
+    $start();
+    clearstatcache();
+    if (is_file($abandoned)) {
+        fail('A new session must remove the stale catalog record');
+    }
+    if (!is_file($live)) {
+        fail('A new session must preserve the live catalog record');
+    }
+
+    info('Tool catalog cleanup checks passed.');
 }
 
 $enabled = getenv('EMCP_INTEGRATION_ENABLED');
@@ -258,6 +317,11 @@ if ($apiPath !== '' && $apiToken !== '') {
     $sessionId = trim((string)($apiPost['headers']['mcp-session-id'] ?? ''));
     if ($sessionId === '') {
         fail('API initialize response missing MCP-Session-Id header');
+    }
+
+    $catalogState = rtrim((string)getenv('EMCP_CATALOG_STATE_DIR'), '/\\');
+    if ($catalogState !== '') {
+        checkCatalogCleanup($apiUrl, $apiToken, $initializePayload, $catalogState);
     }
 
     $catalogFixture = (string)getenv('EMCP_CATALOG_FIXTURE');

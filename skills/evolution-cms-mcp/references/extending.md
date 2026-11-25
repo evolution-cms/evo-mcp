@@ -72,6 +72,7 @@ All in `EvolutionCMS\eMCP\Contracts`:
 | `DestructiveSite` | Also `enable_destructive_tools` + `mcp:destructive`; hidden while disabled; audited. `reversible(): bool` for soft deletes |
 | `ExecutesCode` | Also `enable_code_tools` + `mcp:code` + `save_snippet`/`save_plugin`/`save_module`; hidden while disabled |
 | `RequiresPermission` | `permission(): string|array` checked before the call; hidden from users without it |
+| `HasDefinitionRevision` | `definitionRevision(): string` changes when a description or schema built at runtime changes; without it clients get no `tools/list_changed` |
 
 Markers are an entry gate. Keep the extra's own checks (ownership, document access, file root)
 inside the tool.
