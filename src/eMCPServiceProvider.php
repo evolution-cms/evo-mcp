@@ -26,10 +26,12 @@ use EvolutionCMS\eMCP\Services\McpExecutionService;
 use EvolutionCMS\eMCP\Services\SecurityPolicy;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
 use EvolutionCMS\eMCP\Services\TokenService;
+use EvolutionCMS\eMCP\Services\ToolListNotifications;
 use EvolutionCMS\eMCP\Services\ToolRegistry;
 use EvolutionCMS\eMCP\Support\CustomConfigPath;
 use EvolutionCMS\eMCP\Support\Redactor;
 use EvolutionCMS\eMCP\Support\SettingsFile;
+use Illuminate\Cache\FileStore;
 
 class eMCPServiceProvider extends ServiceProvider
 {
@@ -47,6 +49,16 @@ class eMCPServiceProvider extends ServiceProvider
         $this->app->singleton(IdempotencyStore::class);
         $this->app->singleton(TokenService::class);
         $this->app->singleton(ToolRegistry::class);
+        $this->app->singleton(ToolListNotifications::class, function ($app): ToolListNotifications {
+            $storage = defined('EVO_STORAGE_PATH')
+                ? rtrim((string)EVO_STORAGE_PATH, '/\\')
+                : base_path('core/storage');
+
+            return new ToolListNotifications(
+                new FileStore($app['files'], $storage . '/emcp/tool-catalog'),
+                $app->make(ToolRegistry::class)
+            );
+        });
         $this->app->singleton(ManagerIdentity::class);
         $this->app->singleton(Redactor::class, function () {
             $keys = config('cms.settings.eMCP.logging.redact_keys', []);

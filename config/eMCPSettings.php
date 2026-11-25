@@ -78,6 +78,10 @@ return [
         'abort_on_disconnect' => true,
     ],
 
+    'tool_catalog' => [
+        'notify_changes' => true,
+    ],
+
     'logging' => [
         'channel' => 'emcp',
         'audit_enabled' => true,

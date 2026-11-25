@@ -9,12 +9,15 @@ use EvolutionCMS\eMCP\Support\ToolContract;
 use EvolutionCMS\eMCP\Services\AuditLogger;
 use EvolutionCMS\eMCP\Services\SecurityPolicy;
 use EvolutionCMS\eMCP\Services\ServerRegistry;
+use EvolutionCMS\eMCP\Services\ToolListNotifications;
 use EvolutionCMS\eMCP\Services\ToolRegistry;
+use EvolutionCMS\eMCP\Services\ToolsRevision;
 use EvolutionCMS\eMCP\Support\JsonRpcPayload;
 use EvolutionCMS\eMCP\Support\TraceContext;
 use EvolutionCMS\eMCP\Support\TransportError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Transport\HttpTransport;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -84,8 +87,19 @@ class McpManagerController
             );
         }
 
+        $notifications = null;
+        $files = null;
+        if (ToolListNotifications::handles($request, $auditMethod)) {
+            try {
+                $files = $auditMethod !== 'initialize' ? ToolsRevision::current() : null;
+                $notifications = app(ToolListNotifications::class);
+            } catch (\Throwable $e) {
+                $this->logInternalError($request, $server, $auditMethod, $e);
+            }
+        }
+
         try {
-            $response = $this->runServer($request, $serverClass);
+            [$response, $mcpServer] = $this->runServer($request, $serverClass);
         } catch (\Throwable $e) {
             $this->logInternalError($request, $server, $auditMethod, $e);
 
@@ -108,7 +122,7 @@ class McpManagerController
         }
 
         if (!$response instanceof StreamedResponse && $this->isInitializeRequest($request)) {
-            $this->injectPlatformMetadata($response);
+            $this->injectPlatformMetadata($request, $response, $server, $notifications);
         }
 
         if (!$response instanceof StreamedResponse && $this->isToolsListRequest($request)) {
@@ -124,6 +138,14 @@ class McpManagerController
             $sizeError = $this->enforceResultSizeLimit($request, $server, $response);
             if ($sizeError !== null) {
                 return $this->finalizeResponse($request, $sizeError, $server, $auditMethod, $startedAt);
+            }
+        }
+
+        if ($notifications !== null && $files !== null) {
+            try {
+                $response = $notifications->apply($request, $server, $auditMethod, $response, $mcpServer, $files);
+            } catch (\Throwable $e) {
+                $this->logInternalError($request, $server, $auditMethod, $e);
             }
         }
 
@@ -150,7 +172,8 @@ class McpManagerController
         }
     }
 
-    private function runServer(Request $request, string $serverClass): Response
+    /** @return array{Response, Server} */
+    private function runServer(Request $request, string $serverClass): array
     {
         $transport = new HttpTransport(
             $request,
@@ -160,7 +183,7 @@ class McpManagerController
         $server = app()->make($serverClass, ['transport' => $transport]);
         $server->start();
 
-        return $transport->run();
+        return [$transport->run(), $server];
     }
 
     private function isInitializeRequest(Request $request): bool
@@ -216,8 +239,12 @@ class McpManagerController
         }
     }
 
-    private function injectPlatformMetadata(Response $response): void
-    {
+    private function injectPlatformMetadata(
+        Request $request,
+        Response $response,
+        string $server,
+        ?ToolListNotifications $notifications
+    ): void {
         $raw = $response->getContent();
         if (!is_string($raw) || $raw === '') {
             return;
@@ -231,6 +258,15 @@ class McpManagerController
         $payload['result']['serverInfo']['platform'] = 'eMCP';
         $payload['result']['serverInfo']['platformVersion'] = $this->packageVersion();
         $payload['result']['capabilities']['evo']['toolsetVersion'] = ToolContract::VERSION;
+        if ($notifications !== null) {
+            try {
+                if ($notifications->register($request, $server, $response, $payload['result'])) {
+                    $payload['result']['capabilities']['tools']['listChanged'] = true;
+                }
+            } catch (\Throwable $e) {
+                $this->logInternalError($request, $server, 'initialize', $e);
+            }
+        }
         // Which site this is and which domains the installation serves, so an agent told "put
         // it on site.com" can check rather than guess (one installation may serve several).
         $payload['result']['serverInfo']['site'] = \EvolutionCMS\eMCP\Support\SiteDomains::describe(

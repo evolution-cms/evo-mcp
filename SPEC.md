@@ -216,6 +216,7 @@ Required keys:
 - `stream.max_stream_seconds`: int, default `120`.
 - `stream.heartbeat_seconds`: int, default `15`.
 - `stream.abort_on_disconnect`: bool, default `true`.
+- `tool_catalog.notify_changes`: bool, default `true`.
 - `logging.channel`: string, default `emcp`.
 - `logging.audit_enabled`: bool, default `true`.
 - `logging.redact_keys`: array.
@@ -675,13 +676,12 @@ Sensitive-field policy (MUST):
 
 Default behavior remains deny-by-default.
 
-## 10.6 Streaming constraints (Gate B+)
-- Streaming responses are out of MVP Gate A scope.
-- Streaming is disabled by default.
-- Streaming MUST be explicitly enabled via `stream.enabled=true`.
+## 10.6 Tool execution streaming constraints (Gate B+)
+- Streaming tool execution is out of MVP Gate A scope.
+- Streaming tool execution is disabled by default.
+- Streaming tool execution MUST be explicitly enabled via `stream.enabled=true`.
 - Per-server streaming restrictions MAY apply and MUST be honored.
-- Without explicit streaming enablement, streaming behavior is forbidden.
-- When `stream.enabled=false`, any streaming response attempt MUST be rejected before dispatch.
+- When `stream.enabled=false`, a streamed tool execution response MUST be rejected.
 - Runtime MUST enforce `stream.max_stream_seconds` and `stream.heartbeat_seconds` for active streams.
 - Streaming enablement requires deployment notes for runtime environment:
 - Nginx: disable response buffering for MCP routes (`proxy_buffering off` / `X-Accel-Buffering: no`).
@@ -691,6 +691,12 @@ Default behavior remains deny-by-default.
 - hard timeout via `stream.max_stream_seconds`.
 - heartbeat event every `stream.heartbeat_seconds`.
 - abort stream immediately when `stream.abort_on_disconnect=true` and client disconnect is detected.
+
+### Tool catalog notifications
+
+When `tool_catalog.notify_changes` is enabled, an authenticated Streamable HTTP session MAY receive a finite SSE response containing `notifications/tools/list_changed` followed by the JSON-RPC reply to `tools/call`. The request MUST accept `text/event-stream`. The reply MUST satisfy the ordinary result-size limit before SSE framing, even when `stream.enabled=false`. Internal executions continue to use JSON.
+
+A tool definition that changes independently of Composer metadata, published config and tool identity MUST be signalled through `HasDefinitionRevision`; unsignalled changes MAY go without a notification. Expired session state MUST be removed without requiring a request for the original session, and each cleanup MUST be bounded.
 
 ## 10.7 Orchestration extension profile (Post-MVP SHOULD)
 Для розширених сценаріїв execution beyond plain tool-calls, eMCP SHOULD підтримувати нейтральний envelope:

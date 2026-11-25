@@ -9,6 +9,7 @@ use EvolutionCMS\eMCP\Http\Controllers\Concerns\ManagerPage;
 use EvolutionCMS\eMCP\Models\EmcpToken;
 use EvolutionCMS\eMCP\Services\TokenService;
 use EvolutionCMS\eMCP\Support\ManagerUrl;
+use EvolutionCMS\eMCP\Support\McpConnectionName;
 use EvolutionCMS\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,13 +49,21 @@ class TokensPageController
             ->orderByDesc('id')
             ->get();
 
+        $endpointUrl = ManagerUrl::siteUrl(trim((string)config('cms.settings.eMCP.route.api_prefix', 'mcp'), '/') . '/content');
+        if (str_starts_with($endpointUrl, '/')) {
+            $endpointUrl = $request->getSchemeAndHttpHost() . $endpointUrl;
+        }
+        $connectionName = McpConnectionName::fromEndpoint($endpointUrl);
+
         return view('eMCP::manager.tokens', [
             'tokens' => $tokens,
             'scopes' => TokenService::KNOWN_SCOPES,
             'expiryChoices' => self::EXPIRY_CHOICES,
             'createUrl' => ManagerUrl::to('emcp/tokens'),
             'revokeBaseUrl' => ManagerUrl::to('emcp/tokens'),
-            'endpointUrl' => ManagerUrl::siteUrl(trim((string)config('cms.settings.eMCP.route.api_prefix', 'mcp'), '/') . '/content'),
+            'endpointUrl' => $endpointUrl,
+            'connectionName' => $connectionName,
+            'tokenEnvVar' => McpConnectionName::tokenEnvVar($connectionName),
             'authMode' => strtolower(trim((string)config('cms.settings.eMCP.auth.mode', 'pat'))),
             'plaintext' => $this->pullFlash('plaintext'),
             'message' => $this->pullFlash('message'),

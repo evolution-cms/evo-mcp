@@ -42,7 +42,7 @@ eMCP keeps upstream `laravel/mcp` behavior as the baseline:
 - `POST` processes JSON-RPC messages.
 - `MCP-Session-Id` is passed through request/response.
 - `202` is preserved for no-reply notification flows.
-- SSE transport response uses `text/event-stream` when streaming is enabled.
+- Tool execution can stream through `text/event-stream` when streaming is enabled.
 - Upstream command surface (`make:mcp-*`, `mcp:start`, `mcp:inspector`) remains available.
 
 eMCP-specific logic is additive (ACL/scopes/policies), not a protocol rewrite.
@@ -323,6 +323,7 @@ Markers and contracts (all optional, in `EvolutionCMS\eMCP\Contracts`):
 | `DestructiveSite` (extends `WritesSite`) | Deletes or irreversibly overwrites data. Also needs `security.enable_destructive_tools` and `auth.destructive_scope` (`mcp:destructive`); hidden from `tools/list` while disabled; calls are marked in the audit log (`extra.destructive`, `extra.reversible`, `extra.source = mcp`). Add `public static function reversible(): bool` returning true for soft deletes. |
 | `ExecutesCode` (extends `WritesSite`) | Stores code the server executes: PHP, an executable file, an `@EVAL` / `@SELECT` / `@INCLUDE` binding, SQL. Also needs `security.enable_code_tools`, `auth.code_scope` (`mcp:code`) and, for the token owner, a permission that already grants backend code in the manager (`save_snippet`, `save_plugin` or `save_module`, as Evo's `BackendCodePermissions` defines it). Hidden from `tools/list` while disabled or not permitted; calls are marked in the audit log (`extra.executes_code`). Mark the whole tool if any of its calls can write code. |
 | `RequiresPermission` | `public static function permission(): string\|array` returns an Evo permission, or a list where any one is enough. Checked for the token owner before the tool runs (`403 permission_denied`), on every transport; the tool is hidden from `tools/list` for users without it. Role 1 always passes. No manager identity (`auth.mode = none`, CLI, an async worker) means no access. |
+| `HasDefinitionRevision` | `public function definitionRevision(): string` returns a value that changes with the tool's definition, so connected clients are notified (10.4). |
 
 `tools/list` also gets `readOnlyHint` / `destructiveHint` annotations from these markers (hints a
 tool sets itself are kept). They are hints for the client, not protection:
@@ -499,6 +500,16 @@ Environment notes (Gate B+):
 - Nginx/Proxy: disable buffering for MCP streaming routes.
 - PHP-FPM/FastCGI: configure output buffering/flush for incremental event delivery.
 - Proxy/FPM timeouts must be tuned for long-running streams.
+
+## 10.4 Tool catalog updates
+
+Authenticated Streamable HTTP sessions advertise `tools.listChanged` by default. After a successful first page of `tools/list`, eMCP remembers the revision of the full catalog visible to that session, including extra tools. Composer and published config timestamps and the visible tool identities are checked on subsequent eligible calls. When those signals change, eMCP hashes the catalog to verify that the tools or their definitions changed.
+
+A tool whose description, schemas or annotations depend on anything else (database rows, settings, files of the extra) implements `EvolutionCMS\eMCP\Contracts\HasDefinitionRevision` and returns a new `definitionRevision()` when they change. The revision is read on every eligible call, so it should be cheap: a stored counter, a timestamp, a hash. Without this contract, a definition change that leaves the other signals as they were sends no notification; clients see it on their next `tools/list`.
+
+A subsequent `tools/call` accepting `text/event-stream` can carry `notifications/tools/list_changed` before its regular JSON-RPC reply. The client can refresh by requesting `tools/list` again from the first page. This protocol notification works with `stream.enabled=false`. JSON-only clients and internal executions continue to receive JSON.
+
+Set `tool_catalog.notify_changes=false` in the published eMCP settings to disable this behavior. Session state expires after 24 hours and lives under Evo storage in `emcp/tool-catalog` so a routine application cache clear preserves it. Each new session also removes state files untouched for 25 hours, visiting at most 500 directories and files; with notifications disabled the directory can be deleted. Deployments serving a session across multiple web nodes need shared storage for this directory.
 
 ## 11) Async via sTask
 
